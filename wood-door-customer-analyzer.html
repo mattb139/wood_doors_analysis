@@ -248,16 +248,16 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚪 Wood Door Customer Analysis</h1>
-            <p>Upload your CSV to analyze wood door customers</p>
+            <h1>🚪 Residential Wood Door Customer Analysis</h1>
+            <p>Upload your complete job report CSV - automatically filters for residential wood door jobs</p>
         </div>
         
         <div class="content">
             <!-- Upload Section -->
             <div class="upload-area" id="uploadArea">
                 <div style="font-size: 48px; margin-bottom: 15px;">📁</div>
-                <div style="font-size: 18px; margin-bottom: 10px;">Click or drag to upload CSV</div>
-                <div style="color: #6c757d; font-size: 14px;">Filters for jobs with "wood door" in line items</div>
+                <div style="font-size: 18px; margin-bottom: 10px;">Click or drag to upload your complete job report CSV</div>
+                <div style="color: #6c757d; font-size: 14px;">Automatically filters for Residential = Yes, then finds wood door jobs</div>
                 <input type="file" id="fileInput" accept=".csv">
             </div>
             
@@ -384,20 +384,32 @@
         
         class CustomerClassifier {
             constructor() {
+                // Business name indicators
                 this.contractorIndicators = [
                     'llc', 'inc', 'corp', 'corporation', 'company', 'co.',
                     'enterprises', 'partners', 'associates', 'group', 'holdings',
                     'construction', 'builders', 'contracting', 'contractor',
                     'development', 'renovations', 'restoration', 'improvements',
                     'homes', 'garage', 'doors', 'properties', 'realty',
-                    'services', 'solutions', 'systems', 'supply'
+                    'services', 'solutions', 'systems', 'supply',
+                    'luxury', 'premium', 'quality', 'custom', 'elite', 'premier',
+                    'professional', 'commercial', 'industrial'
                 ];
                 
+                // Known contractor company names
+                this.knownContractors = [
+                    'whiting', 'turner', 'hoffman', 'capstone', 'blandford',
+                    'norton', 'schultz', 'dnp', 'landmark', 'red moon',
+                    'mark michael', 'ascend'
+                ];
+                
+                // Email domains that indicate contractors
                 this.contractorEmailDomains = [
                     'construction', 'builder', 'contractor', 'homes',
                     'properties', 'realty', 'enterprise', 'company'
                 ];
                 
+                // Personal email providers
                 this.genericEmailProviders = [
                     'gmail', 'yahoo', 'hotmail', 'outlook', 'aol', 
                     'icloud', 'msn', 'live', 'me', 'mac'
@@ -410,25 +422,52 @@
                     return 'Contractor';
                 }
                 
+                const nameLower = customerName.toLowerCase();
+                
+                // Check for known contractors
+                for (const known of this.knownContractors) {
+                    if (nameLower.includes(known)) {
+                        return 'Contractor';
+                    }
+                }
+                
                 // Check email domain
                 if (email && this.isContractorEmail(email)) {
                     return 'Contractor';
                 }
                 
                 // Check company name indicators
-                const nameLower = customerName.toLowerCase();
                 for (const indicator of this.contractorIndicators) {
                     if (nameLower.includes(indicator)) {
                         return 'Contractor';
                     }
                 }
                 
-                // Multiple jobs strongly indicates contractor
-                if (jobCount >= 3) {
-                    return 'Contractor';
+                // 2+ jobs is a strong indicator of contractor
+                // Homeowners rarely need multiple wood door projects
+                if (jobCount >= 2) {
+                    // For 2 jobs, check if name looks like a business
+                    if (jobCount === 2) {
+                        // Check for business patterns
+                        if (this.hasBusinessNamePattern(customerName, jobCount)) {
+                            return 'Contractor';
+                        }
+                        // Even simple names with 2 jobs are likely contractors
+                        // unless it's clearly a personal name (First Last format)
+                        const words = customerName.trim().split(' ');
+                        const isLikelyPersonalName = words.length === 2 && 
+                            !words.some(w => this.contractorIndicators.includes(w.toLowerCase()));
+                        
+                        if (!isLikelyPersonalName) {
+                            return 'Contractor';
+                        }
+                    } else {
+                        // 3+ jobs = definitely contractor
+                        return 'Contractor';
+                    }
                 }
                 
-                // Check business naming patterns
+                // Check additional business naming patterns
                 if (this.hasBusinessNamePattern(customerName, jobCount)) {
                     return 'Contractor';
                 }
@@ -466,9 +505,27 @@
                     return true;
                 }
                 
-                // Multiple jobs with business-like name
-                if (jobCount >= 2 && hasMultipleCaps && words.length >= 3) {
+                // Names ending with business-like words
+                const lastWord = words[words.length - 1]?.toLowerCase();
+                const businessEndings = ['builders', 'construction', 'contracting', 
+                    'homes', 'properties', 'services', 'doors', 'company'];
+                if (businessEndings.includes(lastWord)) {
                     return true;
+                }
+                
+                // Multiple capitalized words that don't look like a person's name
+                if (hasMultipleCaps && words.length >= 3) {
+                    // Three+ word names are often businesses
+                    return true;
+                }
+                
+                // Two word names that contain business indicators
+                if (words.length === 2) {
+                    for (const word of words) {
+                        if (this.contractorIndicators.includes(word.toLowerCase())) {
+                            return true;
+                        }
+                    }
                 }
                 
                 return false;
@@ -494,11 +551,28 @@
                     skipEmptyLines: true
                 });
                 
-                // Filter for wood door jobs
-                this.rawData = parsed.data.filter(row => {
-                    const lineItems = String(row['Line items'] || '').toLowerCase();
-                    return lineItems.includes('wood door');
+                // Store total count for reporting
+                this.totalRecordsCount = parsed.data.length;
+                
+                // First filter for Residential = Yes
+                const residentialJobs = parsed.data.filter(row => {
+                    const residential = row['Residential'];
+                    return residential === 'Yes' || residential === 'yes' || residential === 'YES';
                 });
+                
+                this.residentialJobsCount = residentialJobs.length;
+                console.log(`Found ${residentialJobs.length} residential jobs out of ${parsed.data.length} total jobs`);
+                
+                // Then filter residential jobs for wood door
+                this.rawData = residentialJobs.filter(row => {
+                    const lineItems = String(row['Line items'] || '').toLowerCase();
+                    return lineItems.includes('wood door') || 
+                           lineItems.includes('wood-door') || 
+                           lineItems.includes('wooden door');
+                });
+                
+                this.woodDoorJobsCount = this.rawData.length;
+                console.log(`Found ${this.rawData.length} residential wood door jobs`);
                 
                 // Group by customer
                 const grouped = _.groupBy(this.rawData, 'Client name');
@@ -523,7 +597,7 @@
                         customerType: customerType,
                         email: firstJob['Client email'] || '',
                         phone: firstJob['Client phone'] || '',
-                        city: firstJob['Billing city'] || firstJob['Service city'] || '',
+                        city: firstJob['Billing city'] || firstJob['Service city'] || firstJob['Job-Site City'] || '',
                         totalJobs: jobs.length,
                         jobNumbers: jobs.map(j => j['Job #']).filter(n => n),
                         lastJobDate: lastCompletedJob ? lastCompletedJob['Closed date'] : null,
@@ -821,7 +895,7 @@
                     const data = this.dataProcessor.processCSV(csvContent);
                     
                     if (data.length === 0) {
-                        this.uiRenderer.showError('No wood door jobs found in this file.');
+                        this.uiRenderer.showError('No residential wood door jobs found. The file must contain jobs with Residential = "Yes" and "wood door" in line items.');
                         return;
                     }
                     
