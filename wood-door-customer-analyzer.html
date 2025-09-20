@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wood Door Customer Analysis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.95;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .upload-section {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 30px;
+        }
+        
+        .upload-section:hover {
+            border-color: #8B4513;
+            background: #fff8f0;
+        }
+        
+        .upload-section.dragover {
+            border-color: #D2691E;
+            background: #fff8f0;
+            transform: scale(1.02);
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #8B4513;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .filters {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .filter-group label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(139, 69, 19, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 14px;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .customer-type {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .type-homeowner {
+            background: #d1f2eb;
+            color: #0f5132;
+        }
+        
+        .type-contractor {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .type-unknown {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .export-section {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 60px;
+            color: #6c757d;
+        }
+        
+        .summary-section {
+            background: #fff8f0;
+            border: 1px solid #D2691E;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .summary-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #8B4513;
+            margin-bottom: 15px;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e633;
+        }
+        
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+        
+        .summary-label {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .summary-value {
+            font-weight: 600;
+            color: #212529;
+        }
+        
+        @media (max-width: 768px) {
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .filter-group {
+                width: 100%;
+            }
+            
+            .export-section {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚪 Wood Door Customer Analysis</h1>
+            <p>Analyze customers who purchased wood doors - with enhanced contractor detection</p>
+        </div>
+        
+        <div class="content">
+            <div class="upload-section" id="uploadArea">
+                <div style="font-size: 48px; margin-bottom: 15px;">📁</div>
+                <div style="font-size: 18px; margin-bottom: 10px;">Upload Residential Jobs CSV</div>
+                <div style="color: #6c757d; font-size: 14px;">Click or drag to upload your CSV file</div>
+                <input type="file" id="fileInput" accept=".csv">
+            </div>
+            
+            <div id="analysisSection" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalCustomers">0</div>
+                        <div class="stat-label">Total Customers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalJobs">0</div>
+                        <div class="stat-label">Wood Door Jobs</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalRevenue">$0</div>
+                        <div class="stat-label">Total Revenue</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgRevenue">$0</div>
+                        <div class="stat-label">Avg per Customer</div>
+                    </div>
+                </div>
+                
+                <div class="summary-section">
+                    <div class="summary-title">📊 Customer Type Breakdown</div>
+                    <div class="summary-grid">
+                        <div>
+                            <div class="summary-item">
+                                <span class="summary-label">Homeowners:</span>
+                                <span class="summary-value" id="homeownerCount">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Homeowner Revenue:</span>
+                                <span class="summary-value" id="homeownerRevenue">$0</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="summary-item">
+                                <span class="summary-label">Contractors:</span>
+                                <span class="summary-value" id="contractorCount">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Contractor Revenue:</span>
+                                <span class="summary-value" id="contractorRevenue">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Customer Type</label>
+                        <select id="typeFilter">
+                            <option value="">All Types</option>
+                            <option value="Homeowner">Homeowners</option>
+                            <option value="Contractor">Contractors</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Year</label>
+                        <select id="yearFilter">
+                            <option value="">All Years</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Month</label>
+                        <select id="monthFilter">
+                            <option value="">All Months</option>
+                            <option value="01">January</option>
+                            <option value="02">February</option>
+                            <option value="03">March</option>
+                            <option value="04">April</option>
+                            <option value="05">May</option>
+                            <option value="06">June</option>
+                            <option value="07">July</option>
+                            <option value="08">August</option>
+                            <option value="09">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>City</label>
+                        <select id="cityFilter">
+                            <option value="">All Cities</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Min Revenue</label>
+                        <input type="number" id="minRevenue" placeholder="0" min="0">
+                    </div>
+                    <button class="btn btn-secondary" onclick="resetFilters()">Reset Filters</button>
+                </div>
+                
+                <div class="export-section">
+                    <button class="btn btn-primary" onclick="exportFilteredData()">
+                        📥 Export Filtered Data (CSV)
+                    </button>
+                    <button class="btn btn-primary" onclick="exportDetailedReport()">
+                        📊 Export Detailed Report (CSV)
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="customerTable">
+                        <thead>
+                            <tr>
+                                <th>Customer Name</th>
+                                <th>Type</th>
+                                <th>Classification Reason</th>
+                                <th>City</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Total Jobs</th>
+                                <th>Last Job</th>
+                                <th>Total Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="errorDiv"></div>
+        </div>
+    </div>
+
+    <script>
+        let originalData = [];
+        let customerData = [];
+        let filteredData = [];
+        let allJobsData = [];
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const analysisSection = document.getElementById('analysisSection');
+        
+        // File upload handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                showError('Please upload a CSV file.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                processCSV(e.target.result);
+            };
+            reader.onerror = () => {
+                showError('Error reading file.');
+            };
+            reader.readAsText(file);
+        }
+        
+        function processCSV(content) {
+            try {
+                // Parse CSV
+                const parsed = Papa.parse(content, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true
+                });
+                
+                originalData = parsed.data;
+                
+                // Filter for wood door jobs
+                const woodDoorJobs = originalData.filter(row => {
+                    const lineItems = String(row['Line items'] || '').toLowerCase();
+                    return lineItems.includes('wood door') || 
+                           lineItems.includes('wood-door') || 
+                           lineItems.includes('wooden door');
+                });
+                
+                if (woodDoorJobs.length === 0) {
+                    showError('No wood door jobs found in this file.');
+                    return;
+                }
+                
+                // Store all jobs for detailed export
+                allJobsData = woodDoorJobs;
+                
+                // Process and group by customer
+                processCustomerData(woodDoorJobs);
+                
+                // Show analysis
+                uploadArea.style.display = 'none';
+                analysisSection.style.display = 'block';
+                
+            } catch (error) {
+                showError('Error processing CSV: ' + error.message);
+            }
+        }
+        
+        function determineCustomerType(clientName, contractor, jobCount) {
+            if (!clientName) return { type: 'Unknown', reason: 'No name provided' };
+            
+            const name = clientName.toLowerCase();
+            const originalName = clientName;
+            
+            // Comprehensive contractor indicators
+            const contractorIndicators = [
+                // Company types
+                'llc', 'l.l.c.', 'inc', 'incorporated', 'corp', 'corporation', 'ltd', 'limited',
+                'company', 'co.', '& co', 'enterprises', 'enterprise', 'ventures', 'partners',
+                'partnership', 'associates', 'group', 'holdings', 'investments',
+                
+                // Construction/Building related
+                'construction', 'constructors', 'builders', 'building', 'built',
+                'contracting', 'contractor', 'general contractor',
+                'development', 'developers', 'developing',
+                'renovations', 'renovation', 'remodeling', 'remodel',
+                'restoration', 'improvements', 'improvement',
+                'roofing', 'plumbing', 'electric', 'hvac', 'mechanical',
+                'carpentry', 'masonry', 'concrete', 'framing',
+                
+                // Real Estate related
+                'realty', 'real estate', 'properties', 'property',
+                'management', 'property management',
+                
+                // Home/Building specific businesses
+                'homes', 'home builders', 'custom homes', 'luxury homes', 'luxury',
+                'garage', 'garage doors', 'door company', 'doors',
+                'premium', 'quality', 'professional', 'commercial',
+                'design', 'architecture', 'architectural',
+                'custom', 'elite', 'premier', 'pro ', 'professional',
+                
+                // Business suffixes
+                '& sons', 'and sons', '& son', 'and son',
+                '& associates', 'and associates',
+                'services', 'service', 'solutions', 'systems',
+                'supply', 'supplies', 'industries', 'industrial'
+            ];
+            
+            // Known major contractors (based on research)
+            const knownContractors = [
+                'whiting', 'turner', 'hoffman', 'capstone', 'blandford', 
+                'norton', 'schultz', 'dnp', 'landmark', 'red moon', 'mark michael'
+            ];
+            
+            // If contractor field is "Yes", definitely a contractor
+            if (contractor === 'Yes' || contractor === 'yes') {
+                return { type: 'Contractor', reason: 'Marked as contractor' };
+            }
+            
+            // Check for known major contractors
+            for (const known of knownContractors) {
+                if (name.includes(known)) {
+                    return { type: 'Contractor', reason: 'Known contractor' };
+                }
+            }
+            
+            // Check for contractor indicators
+            for (const indicator of contractorIndicators) {
+                if (name.includes(indicator)) {
+                    return { type: 'Contractor', reason: `Contains "${indicator}"` };
+                }
+            }
+            
+            // Business naming pattern checks
+            const words = originalName.trim().split(' ');
+            const hasMultipleCapitalizedWords = words.length >= 2 && 
+                words.filter(w => w && w[0] === w[0].toUpperCase()).length >= 2;
+            
+            // Check for ampersand or hyphen (business indicators)
+            if ((name.includes('&') || name.includes('-')) && !name.includes(' and ')) {
+                // Exception for personal names like "John & Jane Smith"
+                if (words.length <= 4 && !name.includes('sons') && !name.includes('associates')) {
+                    const hasBusinessWord = contractorIndicators.some(ind => name.includes(ind));
+                    if (hasBusinessWord) {
+                        return { type: 'Contractor', reason: 'Business name pattern' };
+                    }
+                } else {
+                    return { type: 'Contractor', reason: 'Business name pattern' };
+                }
+            }
+            
+            // Names ending in common business words
+            const businessEndings = ['builders', 'construction', 'contracting', 'homes', 
+                                    'properties', 'services', 'doors', 'company'];
+            const lastWord = words[words.length - 1]?.toLowerCase();
+            if (lastWord && businessEndings.includes(lastWord)) {
+                return { type: 'Contractor', reason: `Ends with "${lastWord}"` };
+            }
+            
+            // IMPORTANT: Multiple jobs is a strong indicator of being a contractor
+            // Homeowners rarely have 3+ wood door jobs
+            if (jobCount >= 3) {
+                return { type: 'Contractor', reason: `${jobCount} jobs (multiple projects)` };
+            }
+            
+            // If 2 jobs with business-like name, likely a contractor
+            if (jobCount === 2 && hasMultipleCapitalizedWords && words.length >= 2) {
+                // Check if it looks like a personal name
+                const looksLikePersonalName = words.length === 2 || 
+                    (words.length === 3 && (words[1] === '&' || words[1].toLowerCase() === 'and'));
+                
+                if (!looksLikePersonalName) {
+                    return { type: 'Contractor', reason: '2 jobs + business name' };
+                }
+            }
+            
+            // Default to homeowner for personal names
+            return { type: 'Homeowner', reason: 'Personal name pattern' };
+        }
+        
+        function parseDate(dateStr) {
+            if (!dateStr || dateStr === '-' || dateStr === '') return null;
+            
+            const months = {
+                'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+                'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+                'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+            };
+            
+            const parts = dateStr.split(' ');
+            if (parts.length === 3) {
+                const month = months[parts[0]];
+                const year = parts[2];
+                if (month && year) {
+                    return {
+                        full: dateStr,
+                        year: year,
+                        month: month,
+                        yearMonth: `${year}-${month}`
+                    };
+                }
+            }
+            return null;
+        }
+        
+        function processCustomerData(jobs) {
+            // Group by customer
+            const grouped = _.groupBy(jobs, 'Client name');
+            
+            customerData = Object.entries(grouped).map(([clientName, customerJobs]) => {
+                const latestJob = customerJobs[0];
+                
+                // Find last completed job
+                const completedJobs = customerJobs.filter(j => {
+                    const closed = j['Closed date'];
+                    return closed && closed !== '-' && closed !== '';
+                });
+                
+                let lastCompletedDate = 'No completed jobs';
+                let lastCompletedParsed = null;
+                
+                if (completedJobs.length > 0) {
+                    const lastCompleted = completedJobs.reduce((latest, job) => {
+                        const jobDate = parseDate(job['Closed date']);
+                        const latestDate = parseDate(latest['Closed date']);
+                        if (!jobDate) return latest;
+                        if (!latestDate) return job;
+                        return jobDate.full > latestDate.full ? job : latest;
+                    });
+                    lastCompletedDate = lastCompleted['Closed date'];
+                    lastCompletedParsed = parseDate(lastCompletedDate);
+                }
+                
+                const totalRevenue = customerJobs.reduce((sum, job) => 
+                    sum + (parseFloat(job['Total revenue ($)']) || 0), 0
+                );
+                
+                const typeInfo = determineCustomerType(clientName, latestJob['Contractor'], customerJobs.length);
+                
+                return {
+                    customerName: clientName || 'Unknown',
+                    customerType: typeInfo.type,
+                    classificationReason: typeInfo.reason,
+                    email: latestJob['Client email'] || '',
+                    phone: latestJob['Client phone'] || '',
+                    address: latestJob['Billing street'] || '',
+                    city: latestJob['Billing city'] || latestJob['Service city'] || latestJob['Job-Site City'] || '',
+                    province: latestJob['Billing province'] || '',
+                    zip: latestJob['Billing ZIP'] || '',
+                    totalJobs: customerJobs.length,
+                    lastJobCompletedDate: lastCompletedDate,
+                    lastJobYear: lastCompletedParsed?.year || '',
+                    lastJobMonth: lastCompletedParsed?.month || '',
+                    totalRevenue: totalRevenue,
+                    jobs: customerJobs // Keep reference to all jobs
+                };
+            }).sort((a, b) => b.totalRevenue - a.totalRevenue);
+            
+            // Populate filters
+            populateFilters();
+            
+            // Apply filters and display
+            applyFilters();
+        }
+        
+        function populateFilters() {
+            // Year filter
+            const years = new Set();
+            customerData.forEach(c => {
+                if (c.lastJobYear) years.add(c.lastJobYear);
+            });
+            
+            const yearFilter = document.getElementById('yearFilter');
+            yearFilter.innerHTML = '<option value="">All Years</option>';
+            Array.from(years).sort().reverse().forEach(year => {
+                yearFilter.innerHTML += `<option value="${year}">${year}</option>`;
+            });
+            
+            // City filter
+            const cities = new Set();
+            customerData.forEach(c => {
+                if (c.city) cities.add(c.city);
+            });
+            
+            const cityFilter = document.getElementById('cityFilter');
+            cityFilter.innerHTML = '<option value="">All Cities</option>';
+            Array.from(cities).sort().forEach(city => {
+                cityFilter.innerHTML += `<option value="${city}">${city}</option>`;
+            });
+        }
+        
+        function applyFilters() {
+            const typeFilter = document.getElementById('typeFilter').value;
+            const yearFilter = document.getElementById('yearFilter').value;
+            const monthFilter = document.getElementById('monthFilter').value;
+            const cityFilter = document.getElementById('cityFilter').value;
+            const minRevenue = parseFloat(document.getElementById('minRevenue').value) || 0;
+            
+            filteredData = customerData.filter(customer => {
+                if (typeFilter && customer.customerType !== typeFilter) return false;
+                if (yearFilter && customer.lastJobYear !== yearFilter) return false;
+                if (monthFilter && customer.lastJobMonth !== monthFilter) return false;
+                if (cityFilter && customer.city !== cityFilter) return false;
+                if (customer.totalRevenue < minRevenue) return false;
+                return true;
+            });
+            
+            updateDisplay();
+        }
+        
+        function updateDisplay() {
+            // Update statistics
+            const totalJobs = filteredData.reduce((sum, c) => sum + c.totalJobs, 0);
+            const totalRevenue = filteredData.reduce((sum, c) => sum + c.totalRevenue, 0);
+            const avgRevenue = filteredData.length > 0 ? totalRevenue / filteredData.length : 0;
+            
+            document.getElementById('totalCustomers').textContent = filteredData.length;
+            document.getElementById('totalJobs').textContent = totalJobs;
+            document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('avgRevenue').textContent = '$' + avgRevenue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            
+            // Update type breakdown
+            const homeowners = customerData.filter(c => c.customerType === 'Homeowner');
+            const contractors = customerData.filter(c => c.customerType === 'Contractor');
+            
+            const homeownerRevenue = homeowners.reduce((sum, c) => sum + c.totalRevenue, 0);
+            const contractorRevenue = contractors.reduce((sum, c) => sum + c.totalRevenue, 0);
+            
+            document.getElementById('homeownerCount').textContent = homeowners.length;
+            document.getElementById('homeownerRevenue').textContent = '$' + homeownerRevenue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('contractorCount').textContent = contractors.length;
+            document.getElementById('contractorRevenue').textContent = '$' + contractorRevenue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            
+            // Update table
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            filteredData.forEach(customer => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${customer.customerName}</td>
+                    <td><span class="customer-type type-${customer.customerType.toLowerCase()}">${customer.customerType}</span></td>
+                    <td style="font-size: 12px; color: #666; font-style: italic;">${customer.classificationReason}</td>
+                    <td>${customer.city}</td>
+                    <td>${customer.email}</td>
+                    <td>${customer.phone}</td>
+                    <td>${customer.totalJobs}</td>
+                    <td>${customer.lastJobCompletedDate}</td>
+                    <td>${customer.totalRevenue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
+                `;
+            });
+        }
+        
+        function exportFilteredData() {
+            const exportData = filteredData.map(customer => ({
+                'Customer Name': customer.customerName,
+                'Customer Type': customer.customerType,
+                'Classification Reason': customer.classificationReason,
+                'Email': customer.email,
+                'Phone': customer.phone,
+                'Address': customer.address,
+                'City': customer.city,
+                'Province': customer.province,
+                'ZIP': customer.zip,
+                'Total Jobs': customer.totalJobs,
+                'Last Job Completed': customer.lastJobCompletedDate,
+                'Total Revenue': customer.totalRevenue
+            }));
+            
+            const csv = Papa.unparse(exportData);
+            downloadCSV(csv, 'Wood_Door_Customer_Summary.csv');
+        }
+        
+        function exportDetailedReport() {
+            const detailedData = [];
+            
+            filteredData.forEach(customer => {
+                customer.jobs.forEach(job => {
+                    const closedDate = parseDate(job['Closed date']);
+                    detailedData.push({
+                        'Year-Month': closedDate ? closedDate.yearMonth : 'Not Closed',
+                        'Customer Name': customer.customerName,
+                        'Customer Type': customer.customerType,
+                        'Classification Reason': customer.classificationReason,
+                        'Address': customer.address,
+                        'City': customer.city,
+                        'Email': customer.email,
+                        'Phone': customer.phone,
+                        'Job #': job['Job #'],
+                        'Job Title': job['Title'] || '',
+                        'Line Items': job['Line items'] || '',
+                        'Created Date': job['Created date'] || '',
+                        'Closed Date': job['Closed date'] || '',
+                        'Revenue': parseFloat(job['Total revenue ($)']) || 0
+                    });
+                });
+            });
+            
+            // Sort by Year-Month and Customer Name
+            detailedData.sort((a, b) => {
+                const dateCompare = b['Year-Month'].localeCompare(a['Year-Month']);
+                if (dateCompare !== 0) return dateCompare;
+                return a['Customer Name'].localeCompare(b['Customer Name']);
+            });
+            
+            const csv = Papa.unparse(detailedData);
+            downloadCSV(csv, 'Wood_Door_Detailed_Report.csv');
+        }
+        
+        function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function resetFilters() {
+            document.getElementById('typeFilter').value = '';
+            document.getElementById('yearFilter').value = '';
+            document.getElementById('monthFilter').value = '';
+            document.getElementById('cityFilter').value = '';
+            document.getElementById('minRevenue').value = '';
+            applyFilters();
+        }
+        
+        function showError(message) {
+            document.getElementById('errorDiv').innerHTML = 
+                `<div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 6px; margin-top: 20px;">
+                    ⚠️ ${message}
+                </div>`;
+        }
+        
+        // Add event listeners for filters
+        document.getElementById('typeFilter').addEventListener('change', applyFilters);
+        document.getElementById('yearFilter').addEventListener('change', applyFilters);
+        document.getElementById('monthFilter').addEventListener('change', applyFilters);
+        document.getElementById('cityFilter').addEventListener('change', applyFilters);
+        document.getElementById('minRevenue').addEventListener('input', applyFilters);
+    </script>
+</body>
+</html>
