@@ -1,0 +1,2038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Residential Jobs Customer Analysis Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .upload-area {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #f0f4ff;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .analysis-section {
+            display: none;
+        }
+        
+        .analysis-section.active {
+            display: block;
+        }
+        
+        .processing-info {
+            background: #d1f2eb;
+            border: 1px solid #0f5132;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #0a4027;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        
+        .filters {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 150px;
+        }
+        
+        .filter-group label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: white;
+        }
+        
+        .filter-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            user-select: none;
+        }
+        
+        th.sortable {
+            cursor: pointer;
+        }
+        
+        th.sortable:hover {
+            background: linear-gradient(135deg, #7c8ff0 0%, #8759a8 100%);
+        }
+        
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 13px;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .customer-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .type-homeowner {
+            background: #d1f2eb;
+            color: #0f5132;
+        }
+        
+        .type-contractor {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .type-wholesale {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .service-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-right: 4px;
+            background: #e7f5ff;
+            color: #0c63e4;
+        }
+        
+        .product-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-right: 4px;
+            background: #f8e7ff;
+            color: #6f42c1;
+        }
+        
+        .job-link {
+            color: #667eea;
+            text-decoration: none;
+            margin-right: 6px;
+            padding: 2px 6px;
+            background: #f0f4ff;
+            border: 1px solid #667eea;
+            border-radius: 3px;
+            display: inline-block;
+            transition: all 0.2s;
+            font-size: 11px;
+        }
+        
+        .job-link:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .categories-summary {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .category-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .category-chip {
+            background: #f8f9fa;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .email-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        /* Lightbox Styles */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .lightbox-content {
+            background: white;
+            margin: 50px auto;
+            padding: 0;
+            border-radius: 12px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .lightbox-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px 12px 0 0;
+            position: relative;
+        }
+        
+        .lightbox-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .lightbox-close:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .lightbox-body {
+            padding: 30px;
+        }
+        
+        .customer-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        
+        .customer-info h3 {
+            margin: 0 0 15px 0;
+            color: #495057;
+            font-size: 18px;
+        }
+        
+        .customer-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .customer-detail {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .customer-detail label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .customer-detail span {
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .job-details-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .job-details-table th {
+            background: #f8f9fa;
+            color: #495057;
+            padding: 12px 15px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .job-details-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 14px;
+            vertical-align: top;
+        }
+        
+        .job-details-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .job-details-table .line-items-cell {
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Residential & Wholesale Jobs Customer Analysis Tool</h1>
+            <p>Enhanced with 2024/2025 garage door industry categorization</p>
+        </div>
+        
+        <div class="content">
+            <!-- Upload Section -->
+            <div class="upload-area" id="uploadArea">
+                <div style="font-size: 48px; margin-bottom: 15px;">📊</div>
+                <div style="font-size: 18px; margin-bottom: 10px;">Upload Your Complete Job Report CSV</div>
+                <div style="color: #6c757d; font-size: 14px;">Automatically filters Residential = Yes and categorizes by service type and products</div>
+                <input type="file" id="fileInput" accept=".csv">
+            </div>
+            
+            <!-- Analysis Section -->
+            <div class="analysis-section" id="analysisSection">
+                <!-- Processing Info -->
+                <div class="processing-info">
+                    <div style="font-weight: 600; margin-bottom: 5px;">Data Processing Summary</div>
+                    <div id="processingInfo"></div>
+                </div>
+                
+                <!-- Categories Summary -->
+                <div class="categories-summary" id="categoriesSummary" style="display: none;">
+                    <div style="font-weight: 600; margin-bottom: 10px;">Detected Categories</div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Service Types:</strong>
+                        <div class="category-chips" id="serviceTypeChips"></div>
+                    </div>
+                    <div>
+                        <strong>Product Categories:</strong>
+                        <div class="category-chips" id="productCategoryChips"></div>
+                    </div>
+                </div>
+                
+                <!-- Statistics -->
+                <div class="stats-grid" id="statsGrid"></div>
+                
+                <!-- Filters -->
+                <div class="filters" id="filtersContainer" style="display: none;">
+                    <div class="filter-section-title">Basic Filters</div>
+                    <div class="filter-row" id="basicFilters"></div>
+                    
+                    <div class="filter-section-title" style="margin-top: 15px;">Service & Product Filters</div>
+                    <div class="filter-row" id="categoryFilters"></div>
+                    
+                    <div class="filter-section-title" style="margin-top: 15px;">Time & Location Filters</div>
+                    <div class="filter-row" id="timeLocationFilters"></div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="buttons">
+                    <button class="btn btn-primary" onclick="app.export()">Export Jobs Data</button>
+                    <button class="btn btn-info" onclick="app.showCategoryAnalysis()">Category Analysis</button>
+                    <button class="btn btn-secondary" onclick="app.reset()">Upload New File</button>
+                </div>
+                
+                <!-- Data Table -->
+                <div class="table-container">
+                    <table id="dataTable">
+                        <thead id="tableHeader"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Error Display -->
+            <div id="errorContainer"></div>
+        </div>
+    </div>
+
+    <!-- Job Details Lightbox -->
+    <div class="lightbox-overlay" id="jobLightbox">
+        <div class="lightbox-content">
+            <div class="lightbox-header">
+                <h2>Job Details</h2>
+                <button class="lightbox-close" id="closeLightbox">&times;</button>
+            </div>
+            <div class="lightbox-body">
+                <!-- Customer Information -->
+                <div class="customer-info">
+                    <h3>Customer Information</h3>
+                    <div class="customer-details">
+                        <div class="customer-detail">
+                            <label>Customer Name</label>
+                            <span id="lightbox-customer-name">-</span>
+                        </div>
+                        <div class="customer-detail">
+                            <label>Email</label>
+                            <span id="lightbox-customer-email">-</span>
+                        </div>
+                        <div class="customer-detail">
+                            <label>Phone</label>
+                            <span id="lightbox-customer-phone">-</span>
+                        </div>
+                        <div class="customer-detail">
+                            <label>Service Address</label>
+                            <span id="lightbox-customer-address">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Job Details Table -->
+                <table class="job-details-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Job Number</td>
+                            <td id="lightbox-job-number">-</td>
+                        </tr>
+                        <tr>
+                            <td>Created Date</td>
+                            <td id="lightbox-created-date">-</td>
+                        </tr>
+                        <tr>
+                            <td>Scheduled Date</td>
+                            <td id="lightbox-scheduled-date">-</td>
+                        </tr>
+                        <tr>
+                            <td>Closed Date</td>
+                            <td id="lightbox-closed-date">-</td>
+                        </tr>
+                        <tr>
+                            <td>Job Title</td>
+                            <td id="lightbox-job-title">-</td>
+                        </tr>
+                        <tr>
+                            <td>Line Items</td>
+                            <td id="lightbox-line-items" class="line-items-cell">-</td>
+                        </tr>
+                        <tr>
+                            <td>Salesperson</td>
+                            <td id="lightbox-salesperson">-</td>
+                        </tr>
+                        <tr>
+                            <td>Total Revenue</td>
+                            <td id="lightbox-revenue">-</td>
+                        </tr>
+                        <tr>
+                            <td>Warranty Work</td>
+                            <td id="lightbox-warranty">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // UTILITY FUNCTIONS - Centralized business logic
+        // ============================================================================
+        
+        class UtilityService {
+            
+            static formatCurrency(amount) {
+                if (amount === null || amount === undefined || isNaN(amount)) return '$0';
+                return `${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+            }
+            
+            static isResidentialJob(job) {
+                const residential = job['Residential'];
+                return residential === 'Yes' || residential === 'yes' || residential === 'YES' || 
+                       residential === true || residential === 'true' || residential === 'TRUE' ||
+                       residential === 1 || residential === '1';
+            }
+            
+            static isWholesaleJob(job) {
+                const wholesale = job['Wholesale'];
+                return wholesale === 'Yes' || wholesale === 'yes' || wholesale === 'YES' ||
+                       wholesale === true || wholesale === 'true' || wholesale === 'TRUE' ||
+                       wholesale === 1 || wholesale === '1';
+            }
+            
+            static isCommercialJob(job) {
+                const commercial = job['Commercial'];
+                return commercial === 'Yes' || commercial === 'yes' || commercial === 'YES' ||
+                       commercial === true || commercial === 'true' || commercial === 'TRUE' ||
+                       commercial === 1 || commercial === '1';
+            }
+            
+            static isContractorJob(job) {
+                const contractor = job['Contractor'];
+                return contractor === 'Yes' || contractor === 'yes' || contractor === 'YES' ||
+                       contractor === true || contractor === 'true' || contractor === 'TRUE' ||
+                       contractor === 1 || contractor === '1';
+            }
+            
+            static isValidJob(job) {
+                // Skip cancelled jobs (null line items + zero revenue)
+                const lineItems = job['Line items'];
+                const revenue = parseFloat(job['Total revenue ($)']) || 0;
+                const isCancelled = (!lineItems || lineItems === 'null' || lineItems === null) && revenue === 0;
+                return !isCancelled;
+            }
+            
+            static isIncludedJob(job) {
+                // Must be residential OR wholesale AND not cancelled
+                return (this.isResidentialJob(job) || this.isWholesaleJob(job)) && this.isValidJob(job);
+            }
+            
+            static aggregateJobMetrics(jobs) {
+                const totalRevenue = jobs.reduce((sum, job) => sum + (parseFloat(job['Total revenue ($)']) || 0), 0);
+                const totalJobs = jobs.length;
+                const jobNumbers = jobs.map(j => j['Job #']).filter(n => n);
+                
+                return {
+                    totalRevenue,
+                    totalJobs,
+                    jobNumbers,
+                    avgRevenue: totalJobs > 0 ? totalRevenue / totalJobs : 0
+                };
+            }
+            
+            static downloadCSV(data, filename) {
+                const csv = Papa.unparse(data);
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            static validateCSVFile(file) {
+                if (!file) return { valid: false, error: 'No file provided.' };
+                if (!file.name.toLowerCase().endsWith('.csv')) {
+                    return { valid: false, error: 'Please upload a CSV file.' };
+                }
+                return { valid: true };
+            }
+            
+            static truncateText(text, maxLength = 50) {
+                if (!text || text.length <= maxLength) return text;
+                return text.substring(0, maxLength) + '...';
+            }
+            
+            static buildAddress(job) {
+                const addressParts = [];
+                
+                // Try service address first
+                if (job['Service street']) addressParts.push(job['Service street']);
+                if (job['Service city']) addressParts.push(job['Service city']);
+                if (job['Service province']) addressParts.push(job['Service province']);
+                if (job['Service ZIP']) addressParts.push(job['Service ZIP']);
+                
+                // Fallback to billing address if service address is not available
+                if (addressParts.length === 0) {
+                    if (job['Billing street']) addressParts.push(job['Billing street']);
+                    if (job['Billing city']) addressParts.push(job['Billing city']);
+                    if (job['Billing province']) addressParts.push(job['Billing province']);
+                    if (job['Billing ZIP']) addressParts.push(job['Billing ZIP']);
+                }
+                
+                return addressParts.join(', ') || CONFIG.defaultValues.missingValue;
+            }
+        }
+
+        // ============================================================================
+        // CONFIGURATION
+        // ============================================================================
+        
+        const CONFIG = {
+            customerTypes: {
+                wholesale: { value: 'Wholesale', label: 'Wholesale', cssClass: 'type-wholesale' },
+                contractor: { value: 'Contractor', label: 'Contractors', cssClass: 'type-contractor' },
+                homeowner: { value: 'Homeowner', label: 'Homeowners', cssClass: 'type-homeowner' }
+            },
+            
+            businessClassification: {
+                contractorIndicators: [
+                    // Legal entities
+                    'llc', 'inc', 'corp', 'corporation', 'ltd', 'limited', 'company',
+                    
+                    // Property & Asset Management
+                    'management', 'properties', 'property', 'asset', 'investments', 'investment',
+                    'holdings', 'capital', 'ventures', 'development', 'developments',
+                    
+                    // Housing & Apartments
+                    'apartments', 'apts', 'apartment', 'complexes', 'complex', 'residences',
+                    'communities', 'village', 'estates', 'manor', 'towers', 'place',
+                    
+                    // Home Builders & Construction
+                    'homes', 'builders', 'built', 'construction', 'contractors', 'contracting',
+                    'custom homes', 'home builder', 'building', 'remodeling', 'renovation',
+                    
+                    // Business descriptors
+                    'luxury', 'premium', 'elite', 'executive', 'premier', 'preferred',
+                    'platinum', 'diamond', 'gold', 'royal', 'regency', 'imperial',
+                    'eagle', 'summit', 'pinnacle', 'crown', 'signature', 'select',
+                    
+                    // Service companies
+                    'services', 'solutions', 'systems', 'enterprises', 'group',
+                    'garage doors', 'overhead doors', 'door company', 'roofing company',
+                    'installation services', 'repair services',
+                    
+                    // Known contractor companies
+                    'whiting-turner', 'turner construction', 'skanska', 'bechtel'
+                ],
+                
+                personalEmailDomains: [
+                    'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 
+                    'comcast.net', 'icloud.com', 'me.com', 'msn.com', 'live.com',
+                    'earthlink.net', 'cox.net', 'verizon.net', 'att.net'
+                ],
+                
+                businessPatterns: [
+                    /\s+by\s+/i,
+                    /\s+on\s+/i,
+                    /\s+at\s+/i,
+                    /^[A-Z][a-z]+\s+[A-Z][a-z]+\s+[A-Z][a-z]+/,
+                    /\s+(group|team|crew|associates|partners)$/i
+                ],
+                
+                businessEmailIndicators: ['info', 'contact', 'sales', 'office', 'admin', 'support', 'service']
+            },
+            
+            defaultValues: {
+                unknownCustomer: 'Unknown',
+                missingValue: '-',
+                noCompletedJobs: 'No completed jobs',
+                noCompleted: 'No completed',
+                notClosed: 'Not closed',
+                noDateAvailable: 'No date available'
+            },
+            
+            statsConfig: [
+                { id: 'totalCustomers', label: 'Total Customers', format: 'number' },
+                { id: 'totalJobs', label: 'Total Jobs', format: 'number' },
+                { id: 'totalRevenue', label: 'Total Revenue', format: 'currency' },
+                { id: 'avgRevenue', label: 'Avg per Customer', format: 'currency' }
+            ],
+            
+            filterLabels: {
+                allTypes: 'All Types',
+                allServices: 'All Services',
+                allProducts: 'All Products',
+                allYears: 'All Years',
+                allMonths: 'All Months',
+                allCities: 'All Cities'
+            },
+            
+            serviceTypes: {
+                'residential_service': {
+                    keywords: ['residential service', 'resi service', 'service call', 'tune-up', 'tune up', 'maintenance', 'lubrication', 'inspection', 'cleaning', 'repair', 'fix', 'adjust', 'alignment', 'troubleshoot', 'diagnostic'],
+                    label: 'Residential Service'
+                },
+                'emergency': {
+                    keywords: ['emergency', 'urgent', 'after hours', 'same day', 'asap', 'stuck door', 'door won\'t open', 'door won\'t close', 'residential same day', 'broken spring'],
+                    label: 'Emergency Service'
+                },
+                'installation': {
+                    keywords: ['install', 'installation', 'new door', 'replacement', 'door installation', 'new build', 'door sale', 'door clause'],
+                    label: 'Installation'
+                },
+                'retrofit': {
+                    keywords: ['opener installation', 'operator installation', 'motor installation', 'retrofit', 'add opener', 'add operator', 'motor replacement', 'opener replacement'],
+                    label: 'Retrofit'
+                }
+            },
+            
+            productCategories: {
+                'chi': { 
+                    keywords: [
+                        // Direct CHI references
+                        'chi', 'c.h.i', 'c h i', 'chi overhead', 'chi door', 'chi accent',
+                        
+                        // CHI 2000 series model numbers
+                        '2127', '2128', '2140', '2141', '2147', '2148', '2150', '2151', 
+                        '2157', '2158', '2206', '2216', '2240', '2241', '2250', '2251', 
+                        '2283', '2327', '2328', '2347', '2348', '2357', '2358', '2518', 
+                        '2550', '2551', '2583', '2717',
+                        
+                        // CHI 3000 series
+                        '3295', '3297',
+                        
+                        // CHI 4000 series  
+                        '4140', '4141', '4150', '4151', '4206', '4216', '4240', '4241', 
+                        '4250', '4251', '4283',
+                        
+                        // CHI 5000 series
+                        '5216', '5240', '5250', '5251', '5283', '5300', '5400', '5500', 
+                        '5600', '5602', '5700', '5800', '5916', '5950', '5951', '5983',
+                        
+                        // CHI product lines and features
+                        'skyline flush', 'accent planks', 'accent wood', 'accent woodtones',
+                        'stamped carriage house', 'chi-springs', 'chi springs'
+                    ], 
+                    label: 'CHI Doors' 
+                },
+                'clopay': { keywords: ['clopay', 'canyon ridge', 'coachman', 'gallery', 'avante', 'reserve wood', 'classic series'], label: 'Clopay Doors' },
+                'amarr': { keywords: ['amarr', 'classica', 'heritage', 'lincoln', 'stratford', 'safeguard', 'weatherguard'], label: 'Amarr Doors' },
+                'wayne_dalton': { keywords: ['wayne dalton', 'wayne-dalton', 'torquemaster', 'truchoice', 'insulated series'], label: 'Wayne Dalton' },
+                'overhead_door': { keywords: ['overhead door', 'thermacore', 'ribbon series', 'courtyard series'], label: 'Overhead Door' },
+                'raynor': { keywords: ['raynor', 'aspen', 'distinction', 'tri-core', 'showcase', 'performance plus'], label: 'Raynor Doors' },
+                'haas_door': { keywords: ['haas door', 'haas', 'traditional series', 'carriage collection'], label: 'Haas Door' },
+                'hormann': { keywords: ['hormann', 'hörmann', 'german door'], label: 'Hormann Doors' },
+                'wood_door': { keywords: ['wood door', 'wooden door', 'cedar', 'redwood', 'hemlock', 'mahogany', 'natural wood', 'solid wood', 'wood overlay'], label: 'Wood Doors' },
+                'steel_door': { keywords: ['steel door', 'steel panel', 'insulated steel', 'non-insulated steel', '24 gauge', '25 gauge', 'steel sectional'], label: 'Steel Doors' },
+                'aluminum': { keywords: ['aluminum', 'aluminum door', 'full view aluminum', 'aluminum glass', 'anodized aluminum'], label: 'Aluminum Doors' },
+                'fiberglass': { keywords: ['fiberglass', 'fiberglass door', 'composite fiberglass'], label: 'Fiberglass Doors' },
+                'carriage': { keywords: ['carriage', 'carriage house', 'carriage style', 'overlay carriage', 'barn style', 'barn door', 'faux carriage'], label: 'Carriage House' },
+                'modern': { keywords: ['modern', 'contemporary', 'flush panel', 'modern steel', 'modern aluminum', 'sleek design', 'minimalist'], label: 'Modern/Contemporary' },
+                'liftmaster': { keywords: ['liftmaster', 'lift master', '8500', '8550', '8360', '8365', 'myq liftmaster', 'elite series'], label: 'LiftMaster' },
+                'chamberlain': { keywords: ['chamberlain', 'b970', 'b550', 'b750', 'b2405', 'b6765', 'myq chamberlain', 'whisper drive'], label: 'Chamberlain' },
+                'genie': { keywords: ['genie', 'intellig', 'silentmax', 'stealth drive', 'quietlift', 'aladdin connect', 'chain drive 500'], label: 'Genie' },
+                'craftsman': { keywords: ['craftsman', 'craftsman opener'], label: 'Craftsman' },
+                'springs': { keywords: ['spring', 'torsion spring', 'extension spring', 'maxlife', 'ez-set', 'high cycle springs', 'spring system'], label: 'Springs' },
+                'cables': { keywords: ['cable', 'aircraft cable', 'galvanized cable', 'lift cable'], label: 'Cables' },
+                'rollers': { keywords: ['roller', 'nylon roller', 'steel roller', 'ball bearing roller', '10 ball', '11 ball', '13 ball', 'quiet rollers'], label: 'Rollers' },
+                'tracks': { keywords: ['track', 'vertical track', 'horizontal track', 'curved track', 'track system'], label: 'Tracks' },
+                'remote_keypad': { keywords: ['remote', 'keypad', 'transmitter', 'garage remote', 'wireless keypad', 'clicker'], label: 'Remotes & Keypads' }
+            },
+            
+            tableColumns: [
+                { id: 'customerName', label: 'Customer', sortable: true, render: (value) => value },
+                { id: 'customerType', label: 'Type', sortable: true, render: (value) => {
+                    const customerType = Object.values(CONFIG.customerTypes).find(ct => ct.value === value);
+                    const cssClass = customerType ? customerType.cssClass : 'type-unknown';
+                    return `<span class="customer-type ${cssClass}">${value}</span>`;
+                }},
+                { id: 'email', label: 'Email', sortable: true, render: (value) => `<div class="email-cell" title="${value}">${value}</div>` },
+                { id: 'primaryService', label: 'Primary Service', sortable: true, render: (value) => value ? `<span class="service-tag">${value}</span>` : '' },
+                { id: 'products', label: 'Products', sortable: false, render: (value) => value.map(p => `<span class="product-tag">${p}</span>`).join('') },
+                { id: 'city', label: 'City', sortable: true, render: (value) => value || '' },
+                { id: 'totalJobs', label: 'Jobs', sortable: true, render: (value) => value },
+                { id: 'jobNumbers', label: 'Job #s', sortable: false, render: (value, customer) => {
+                    const links = value.slice(0, 3).map(jobNum => 
+                        `<a href="#" class="job-link" onclick="app.openJobDetails('${jobNum}', '${customer.customerName}')" title="Job #${jobNum}">${jobNum}</a>`
+                    ).join('');
+                    return value.length > 3 ? links + ` +${value.length - 3} more` : links;
+                }},
+                { id: 'lastJobDate', label: 'Last Job', sortable: true, render: (value) => value || CONFIG.defaultValues.noCompleted },
+                { id: 'totalRevenue', label: 'Revenue', sortable: true, render: (value) => UtilityService.formatCurrency(value) }
+            ]
+        };
+
+        // ============================================================================
+        // BUSINESS LOGIC LAYER - Single source of truth
+        // ============================================================================
+        
+        class JobAnalysisService {
+            
+            // Raw keyword detection - now uses both Title and Line items
+            detectKeywords(job, config) {
+                const lineItems = String(job['Line items'] || '');
+                const title = String(job['Title'] || '');
+                const salesRep = String(job['Salesperson'] || '').toLowerCase();
+                const combinedText = (lineItems + ' ' + title).toLowerCase();
+                
+                const serviceTypes = [];
+                const productCategories = [];
+                
+                // Sales rep-based classification (takes precedence)
+                if (salesRep.includes('ajimenez')) {
+                    serviceTypes.push('Installation');
+                } else if (salesRep.includes('smiske')) {
+                    serviceTypes.push('Residential Service');
+                }
+                
+                // Detect service types from keywords
+                for (const [key, serviceConfig] of Object.entries(config.serviceTypes)) {
+                    for (const keyword of serviceConfig.keywords) {
+                        if (combinedText.includes(keyword)) {
+                            if (!serviceTypes.includes(serviceConfig.label)) {
+                                serviceTypes.push(serviceConfig.label);
+                            }
+                            break;
+                        }
+                    }
+                }
+                
+                // Detect product categories
+                for (const [key, productConfig] of Object.entries(config.productCategories)) {
+                    for (const keyword of productConfig.keywords) {
+                        if (combinedText.includes(keyword)) {
+                            if (!productCategories.includes(productConfig.label)) {
+                                productCategories.push(productConfig.label);
+                            }
+                            break;
+                        }
+                    }
+                }
+                
+                // No fallback to "General Service" - if no service type detected, assign based on context
+                if (serviceTypes.length === 0) {
+                    // Default classification based on revenue and context
+                    const revenue = parseFloat(job['Total revenue ($)']) || 0;
+                    
+                    if (revenue >= 1000) {
+                        serviceTypes.push('Installation'); // High revenue likely installation
+                    } else {
+                        serviceTypes.push('Residential Service'); // Lower revenue likely service
+                    }
+                }
+                
+                return { serviceTypes, productCategories };
+            }
+            
+            // Business logic for job classification
+            classifyJob(job, rawClassification) {
+                const revenue = parseFloat(job['Total revenue ($)']) || 0;
+                const lineItems = String(job['Line items'] || '').toLowerCase();
+                const title = String(job['Title'] || '').toLowerCase();
+                const combinedText = lineItems + ' ' + title;
+                
+                let businessServiceTypes = [...rawClassification.serviceTypes];
+                let businessProductCategories = [...rawClassification.productCategories];
+                
+                // CHI Door validation: Prevent false positives for low-revenue jobs
+                if (businessProductCategories.includes('CHI Doors') && revenue < 1000) {
+                    const isLegitimateChiWork = combinedText.includes('chi door') ||
+                                              combinedText.includes('chi-springs') ||
+                                              combinedText.includes('chi springs') ||
+                                              combinedText.includes('chi section') ||
+                                              combinedText.includes('chi replacement') ||
+                                              combinedText.includes('c.h.i') ||
+                                              (combinedText.includes('chi') && (
+                                                  combinedText.includes('spring') ||
+                                                  combinedText.includes('section') ||
+                                                  combinedText.includes('panel') ||
+                                                  combinedText.includes('strut')
+                                              ));
+                    
+                    if (!isLegitimateChiWork) {
+                        businessProductCategories = businessProductCategories.filter(p => p !== 'CHI Doors');
+                    }
+                }
+                
+                // Business rules for service type refinement
+                if (revenue >= 2000 && this.isDoorInstallation(combinedText)) {
+                    // High revenue door installation
+                    if (!businessServiceTypes.includes('Installation')) {
+                        businessServiceTypes = businessServiceTypes.filter(s => s !== 'Residential Service');
+                        businessServiceTypes.push('Installation');
+                    }
+                } else if (revenue >= 300 && revenue < 1000 && this.isStandaloneOpener(combinedText)) {
+                    // Standalone opener installation is retrofit
+                    if (!businessServiceTypes.includes('Retrofit')) {
+                        businessServiceTypes = businessServiceTypes.filter(s => s !== 'Residential Service');
+                        businessServiceTypes.push('Retrofit');
+                    }
+                }
+                
+                const primaryService = this.determinePrimaryService(businessServiceTypes, revenue, combinedText);
+                
+                return {
+                    serviceTypes: businessServiceTypes,
+                    productCategories: businessProductCategories,
+                    primaryService: primaryService,
+                    revenue: revenue
+                };
+            }
+            
+            isDoorInstallation(combinedText) {
+                return combinedText.includes('door sale') || combinedText.includes('door clause') ||
+                       combinedText.includes('wood door') || combinedText.includes('steel door') ||
+                       combinedText.includes('aluminum door') || combinedText.includes('new door') ||
+                       combinedText.includes('door install');
+            }
+            
+            isStandaloneOpener(combinedText) {
+                return (combinedText.includes('opener') || combinedText.includes('operator') || combinedText.includes('motor')) && 
+                       !combinedText.includes('door sale') && !combinedText.includes('door clause');
+            }
+            
+            determinePrimaryService(serviceTypes, revenue, combinedText) {
+                // Priority order based on business importance
+                if (serviceTypes.includes('Emergency Service')) return 'Emergency Service';
+                if (serviceTypes.includes('Installation')) return 'Installation';
+                if (serviceTypes.includes('Retrofit')) return 'Retrofit';
+                if (serviceTypes.includes('Residential Service')) return 'Residential Service';
+                
+                // Fallback based on revenue if no service type detected
+                if (revenue >= 1000) return 'Installation';
+                return 'Residential Service';
+            }
+            
+            // Customer aggregation
+            aggregateCustomer(jobs) {
+                const allServiceTypes = new Set();
+                const allProductCategories = new Set();
+                let totalRevenue = 0;
+                let primaryServiceRevenue = {};
+                
+                jobs.forEach(job => {
+                    const rawClassification = this.detectKeywords(job, CONFIG);
+                    const businessClassification = this.classifyJob(job, rawClassification);
+                    
+                    businessClassification.serviceTypes.forEach(st => allServiceTypes.add(st));
+                    businessClassification.productCategories.forEach(pc => allProductCategories.add(pc));
+                    
+                    const primary = businessClassification.primaryService;
+                    primaryServiceRevenue[primary] = (primaryServiceRevenue[primary] || 0) + businessClassification.revenue;
+                    totalRevenue += businessClassification.revenue;
+                });
+                
+                // Find highest revenue service dynamically
+                let customerPrimaryService = this.getDefaultPrimaryService();
+                let maxRevenue = 0;
+                Object.entries(primaryServiceRevenue).forEach(([service, revenue]) => {
+                    if (revenue > maxRevenue) {
+                        maxRevenue = revenue;
+                        customerPrimaryService = service;
+                    }
+                });
+                
+                return {
+                    serviceTypes: Array.from(allServiceTypes),
+                    productCategories: Array.from(allProductCategories),
+                    primaryService: customerPrimaryService,
+                    totalRevenue: totalRevenue
+                };
+            }
+            
+            getDefaultPrimaryService() {
+                // Dynamically get the first available service type as default
+                const availableServiceTypes = Object.values(CONFIG.serviceTypes).map(st => st.label);
+                return availableServiceTypes.length > 0 ? availableServiceTypes[0] : 'Unknown Service';
+            }
+        }
+
+        // ============================================================================
+        // DATA LAYER
+        // ============================================================================
+        
+        class DataProcessor {
+            constructor() {
+                this.analysisService = new JobAnalysisService();
+                this.rawData = [];
+                this.customerData = [];
+                this.filteredData = [];
+                this.totalRecordsCount = 0;
+                this.includedJobsCount = 0;
+                this.detectedServiceTypes = new Set();
+                this.detectedProductCategories = new Set();
+            }
+            
+            loadData(content) {
+                return this.processCSV(content);
+            }
+            
+            processCSV(content) {
+                const parsed = Papa.parse(content, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true
+                });
+                
+                this.totalRecordsCount = parsed.data.length;
+                
+                // Filter for Residential = Yes OR Wholesale = Yes, AND remove cancelled jobs
+                const includedJobs = parsed.data.filter(row => UtilityService.isIncludedJob(row));
+                
+                this.includedJobsCount = includedJobs.length;
+                this.rawData = includedJobs;
+                
+                this.detectedServiceTypes.clear();
+                this.detectedProductCategories.clear();
+                
+                // Group by customer
+                const grouped = _.groupBy(this.rawData, 'Client name');
+                
+                // Process each customer
+                this.customerData = Object.entries(grouped).map(([clientName, jobs]) => {
+                    const firstJob = jobs[0];
+                    const lastCompletedJob = this.findLastCompletedJob(jobs);
+                    
+                    // Check if ANY job for this customer is wholesale
+                    const hasWholesaleJob = jobs.some(job => UtilityService.isWholesaleJob(job));
+                    
+                    // Use wholesale job for classification if available, otherwise use first job
+                    const jobForClassification = hasWholesaleJob ? 
+                        jobs.find(job => UtilityService.isWholesaleJob(job)) : firstJob;
+                    
+                    // Apply business logic
+                    const businessResult = this.analysisService.aggregateCustomer(jobs);
+                    
+                    // Update detected categories for filtering
+                    businessResult.serviceTypes.forEach(st => this.detectedServiceTypes.add(st));
+                    businessResult.productCategories.forEach(pc => this.detectedProductCategories.add(pc));
+                    
+                    return {
+                        customerName: clientName || CONFIG.defaultValues.unknownCustomer,
+                        customerType: this.classifyCustomerType(clientName, jobForClassification['Client email'], jobForClassification['Contractor'], jobs.length, jobForClassification['Wholesale'], jobForClassification['Residential']),
+                        email: firstJob['Client email'] || '',
+                        phone: firstJob['Client phone'] || '',
+                        city: firstJob['Billing city'] || firstJob['Service city'] || firstJob['Job-Site City'] || '',
+                        totalJobs: jobs.length,
+                        jobNumbers: jobs.map(j => j['Job #']).filter(n => n),
+                        lastJobDate: lastCompletedJob ? lastCompletedJob['Closed date'] : null,
+                        totalRevenue: businessResult.totalRevenue,
+                        year: this.extractYear(lastCompletedJob || jobs[0]),
+                        month: this.extractMonth(lastCompletedJob || jobs[0]),
+                        serviceTypes: businessResult.serviceTypes,
+                        primaryService: businessResult.primaryService,
+                        products: businessResult.productCategories,
+                        rawJobs: jobs
+                    };
+                });
+                
+                this.filteredData = [...this.customerData];
+                return this.customerData;
+            }
+            
+            classifyCustomerType(customerName, email, contractorField, jobCount, wholesaleField, residentialField) {
+                // Check wholesale first - wholesale customers are always contractors by nature
+                if (wholesaleField === 'Yes' || wholesaleField === 'yes' || wholesaleField === 'YES') {
+                    return CONFIG.customerTypes.wholesale.value;
+                }
+                
+                // Only run contractor detection logic for residential jobs where wholesale = no
+                const isResidential = residentialField === 'Yes' || residentialField === 'yes' || residentialField === 'YES' || 
+                                    residentialField === true || residentialField === 'true' || residentialField === 'TRUE' ||
+                                    residentialField === 1 || residentialField === '1';
+                
+                if (!isResidential) {
+                    // Not residential and not wholesale - probably commercial, default to contractor
+                    return CONFIG.customerTypes.contractor.value;
+                }
+                
+                // For residential jobs (wholesale = no), determine contractor vs homeowner
+                if (UtilityService.isContractorJob({Contractor: contractorField})) return CONFIG.customerTypes.contractor.value;
+                
+                const nameLower = customerName.toLowerCase();
+                const emailLower = (email || '').toLowerCase();
+                
+                // Check for strong contractor indicators from config
+                for (const indicator of CONFIG.businessClassification.contractorIndicators) {
+                    if (nameLower.includes(indicator)) return CONFIG.customerTypes.contractor.value;
+                }
+                
+                // Specific business name patterns that are clearly contractors
+                for (const pattern of CONFIG.businessClassification.businessPatterns) {
+                    if (pattern.test(customerName)) return CONFIG.customerTypes.contractor.value;
+                }
+                
+                // Email domain analysis (business domains are strong indicators)
+                if (email && email.includes('@')) {
+                    const emailDomain = emailLower.split('@')[1];
+                    
+                    if (emailDomain && !CONFIG.businessClassification.personalEmailDomains.includes(emailDomain)) {
+                        // Check if email local part strongly suggests business
+                        const emailLocal = emailLower.split('@')[0];
+                        for (const indicator of CONFIG.businessClassification.businessEmailIndicators) {
+                            if (emailLocal === indicator || emailLocal.startsWith(indicator)) {
+                                return CONFIG.customerTypes.contractor.value;
+                            }
+                        }
+                    }
+                }
+                
+                // Handle different name formats properly
+                let cleanName = customerName.trim();
+                
+                // Handle "Last, First" format
+                if (cleanName.includes(',')) {
+                    const parts = cleanName.split(',').map(p => p.trim());
+                    if (parts.length === 2 && this.isPersonalNamePart(parts[0]) && this.isPersonalNamePart(parts[1])) {
+                        return CONFIG.customerTypes.homeowner.value; // Clear personal name format
+                    }
+                }
+                
+                // Check if it's a clear personal name pattern
+                const words = cleanName.split(/\s+/).map(w => w.replace(/[,]/g, ''));
+                
+                if (words.length >= 2 && words.length <= 4) {
+                    const allWordsLookPersonal = words.every(word => this.isPersonalNamePart(word));
+                    if (allWordsLookPersonal) {
+                        return CONFIG.customerTypes.homeowner.value;
+                    }
+                }
+                
+                // Single word names - only contractor if they have clear business indicators
+                if (words.length === 1) {
+                    const word = words[0];
+                    // If it's a common personal name or doesn't have business indicators, assume homeowner
+                    if (this.isPersonalNamePart(word) && word.length <= 15) {
+                        return CONFIG.customerTypes.homeowner.value;
+                    }
+                }
+                
+                // Multiple jobs + unclear name pattern - be more conservative
+                if (jobCount >= 3) {
+                    // Only classify as contractor if name has business-like characteristics
+                    const hasBusinessCharacteristics = 
+                        nameLower.includes('pro') || nameLower.includes('choice') || 
+                        nameLower.includes('sage') || nameLower.includes('freestone') ||
+                        nameLower.includes('mountain') || nameLower.includes('mtn') ||
+                        nameLower.includes('view') || nameLower.includes('legacy') ||
+                        words.length > 4; // Very long names more likely business
+                    
+                    if (hasBusinessCharacteristics) {
+                        return CONFIG.customerTypes.contractor.value;
+                    }
+                }
+                
+                // Default to homeowner (be conservative)
+                return CONFIG.customerTypes.homeowner.value;
+            }
+            
+            // Helper function to check if a word looks like a personal name part
+            isPersonalNamePart(word) {
+                if (!word || word.length < 2) return false;
+                
+                // Should start with capital letter
+                if (!/^[A-Z]/.test(word)) return false;
+                
+                // Should be mostly letters (allow apostrophes, hyphens)
+                if (!/^[A-Za-z'\-]+$/.test(word)) return false;
+                
+                // Common business suffixes that shouldn't be in personal names
+                const businessSuffixes = ['llc', 'inc', 'corp', 'ltd', 'co'];
+                if (businessSuffixes.includes(word.toLowerCase())) return false;
+                
+                return true;
+            }
+            
+            applyFilters(filters) {
+                if (!filters.customerType && !filters.serviceType && !filters.productCategory && 
+                    !filters.year && !filters.month && !filters.city && !filters.minRevenue && !filters.minJobs) {
+                    this.filteredData = [...this.customerData];
+                    return this.filteredData;
+                }
+                
+                // Filter individual jobs first based on job-level criteria
+                const filteredJobs = this.rawData.filter(job => {
+                    const rawClassification = this.analysisService.detectKeywords(job, CONFIG);
+                    const businessResult = this.analysisService.classifyJob(job, rawClassification);
+                    
+                    const jobYear = this.extractYear(job);
+                    const jobMonth = this.extractMonth(job);
+                    const jobCity = job['Billing city'] || job['Service city'] || job['Job-Site City'] || '';
+                    
+                    let matches = true;
+                    
+                    // Service type filter - check if this specific job contains the service type
+                    if (filters.serviceType && !businessResult.serviceTypes.includes(filters.serviceType)) {
+                        matches = false;
+                    }
+                    
+                    // Product category filter - check if this specific job contains the product
+                    if (filters.productCategory && !businessResult.productCategories.includes(filters.productCategory)) {
+                        matches = false;
+                    }
+                    
+                    // Time/location filters
+                    if (filters.year && jobYear !== filters.year) matches = false;
+                    if (filters.month && jobMonth !== filters.month) matches = false;
+                    if (filters.city && jobCity !== filters.city) matches = false;
+                    
+                    return matches;
+                });
+                
+                // Re-aggregate by customer, but only include the filtered jobs
+                const groupedFilteredJobs = _.groupBy(filteredJobs, 'Client name');
+                
+                this.filteredData = Object.entries(groupedFilteredJobs).map(([clientName, jobs]) => {
+                    const firstJob = jobs[0];
+                    const lastCompletedJob = this.findLastCompletedJob(jobs);
+                    
+                    // Recalculate customer metrics based only on filtered jobs
+                    const businessResult = this.analysisService.aggregateCustomer(jobs);
+                    const originalCustomer = this.customerData.find(c => c.customerName === clientName);
+                    
+                    const customerRecord = {
+                        customerName: clientName || 'Unknown',
+                        customerType: originalCustomer ? originalCustomer.customerType : 'Homeowner',
+                        email: firstJob['Client email'] || '',
+                        phone: firstJob['Client phone'] || '',
+                        city: firstJob['Billing city'] || firstJob['Service city'] || firstJob['Job-Site City'] || '',
+                        totalJobs: jobs.length, // Only count filtered jobs
+                        jobNumbers: jobs.map(j => j['Job #']).filter(n => n),
+                        lastJobDate: lastCompletedJob ? lastCompletedJob['Closed date'] : null,
+                        totalRevenue: businessResult.totalRevenue, // Only revenue from filtered jobs
+                        year: this.extractYear(lastCompletedJob || jobs[0]),
+                        month: this.extractMonth(lastCompletedJob || jobs[0]),
+                        serviceTypes: businessResult.serviceTypes,
+                        primaryService: businessResult.primaryService,
+                        products: businessResult.productCategories,
+                        rawJobs: jobs // Only the filtered jobs
+                    };
+                    
+                    // Apply customer-level filters AFTER job filtering
+                    if (filters.customerType && customerRecord.customerType !== filters.customerType) return null;
+                    if (filters.minRevenue && customerRecord.totalRevenue < filters.minRevenue) return null;
+                    if (filters.minJobs && customerRecord.totalJobs < filters.minJobs) return null;
+                    
+                    return customerRecord;
+                }).filter(customer => customer !== null);
+                
+                return this.filteredData;
+            }
+            
+            findLastCompletedJob(jobs) {
+                if (jobs.length === 0) return null;
+                
+                // Find the most recent job overall (by created date or scheduled date)
+                const mostRecentJob = jobs.reduce((latest, job) => {
+                    // Get the most recent date for this job (created or scheduled)
+                    const createdDate = job['Created date'] ? new Date(job['Created date']) : null;
+                    const scheduledDate = job['Scheduled start date'] ? new Date(job['Scheduled start date']) : null;
+                    
+                    let jobDate = null;
+                    if (createdDate && scheduledDate) {
+                        jobDate = createdDate > scheduledDate ? createdDate : scheduledDate;
+                    } else if (createdDate) {
+                        jobDate = createdDate;
+                    } else if (scheduledDate) {
+                        jobDate = scheduledDate;
+                    }
+                    
+                    if (!jobDate) return latest;
+                    
+                    // Get the date for the current latest job
+                    const latestCreatedDate = latest['Created date'] ? new Date(latest['Created date']) : null;
+                    const latestScheduledDate = latest['Scheduled start date'] ? new Date(latest['Scheduled start date']) : null;
+                    
+                    let latestDate = null;
+                    if (latestCreatedDate && latestScheduledDate) {
+                        latestDate = latestCreatedDate > latestScheduledDate ? latestCreatedDate : latestScheduledDate;
+                    } else if (latestCreatedDate) {
+                        latestDate = latestCreatedDate;
+                    } else if (latestScheduledDate) {
+                        latestDate = latestScheduledDate;
+                    }
+                    
+                    if (!latestDate || jobDate > latestDate) {
+                        return job;
+                    }
+                    return latest;
+                }, jobs[0]);
+                
+                // Check if the most recent job is completed
+                if (mostRecentJob['Closed date'] && mostRecentJob['Closed date'] !== '-' && mostRecentJob['Closed date'] !== '') {
+                    // It's completed, so return it with closed date
+                    return mostRecentJob;
+                } else {
+                    // It's not completed, but we still want to show it as the "last job"
+                    // We'll modify the closed date to show the appropriate date (created or scheduled)
+                    const modifiedJob = { ...mostRecentJob };
+                    
+                    const createdDate = mostRecentJob['Created date'];
+                    const scheduledDate = mostRecentJob['Scheduled start date'];
+                    
+                    // Use the later of created or scheduled date
+                    if (createdDate && scheduledDate) {
+                        const created = new Date(createdDate);
+                        const scheduled = new Date(scheduledDate);
+                        modifiedJob['Closed date'] = created > scheduled ? createdDate : scheduledDate;
+                    } else if (createdDate) {
+                        modifiedJob['Closed date'] = createdDate;
+                    } else if (scheduledDate) {
+                        modifiedJob['Closed date'] = scheduledDate;
+                    } else {
+                        modifiedJob['Closed date'] = 'No date available';
+                    }
+                    
+                    return modifiedJob;
+                }
+            }
+            
+            // Centralized date utilities
+            parseDate(dateStr) {
+                if (!dateStr || dateStr === '-' || dateStr === '') return null;
+                
+                // Handle multiple formats consistently
+                try {
+                    // JavaScript Date constructor can handle most formats including "Aug 20, 2025"
+                    const date = new Date(dateStr);
+                    return isNaN(date.getTime()) ? null : date;
+                } catch (error) {
+                    return null;
+                }
+            }
+            
+            getEffectiveDate(job) {
+                // Try closed date first, then fall back to created/scheduled date
+                let dateStr = job['Closed date'];
+                
+                if (!dateStr || dateStr === '-' || dateStr === '') {
+                    const createdDate = job['Created date'];
+                    const scheduledDate = job['Scheduled start date'];
+                    
+                    if (createdDate && scheduledDate && scheduledDate !== '-') {
+                        const created = this.parseDate(createdDate);
+                        const scheduled = this.parseDate(scheduledDate);
+                        if (created && scheduled) {
+                            dateStr = created > scheduled ? createdDate : scheduledDate;
+                        } else if (created) {
+                            dateStr = createdDate;
+                        } else if (scheduled) {
+                            dateStr = scheduledDate;
+                        }
+                    } else if (createdDate && createdDate !== '-') {
+                        dateStr = createdDate;
+                    } else if (scheduledDate && scheduledDate !== '-') {
+                        dateStr = scheduledDate;
+                    }
+                }
+                
+                return this.parseDate(dateStr);
+            }
+            
+            extractYear(job) {
+                const date = this.getEffectiveDate(job);
+                return date ? date.getFullYear().toString() : '';
+            }
+            
+            extractMonth(job) {
+                const date = this.getEffectiveDate(job);
+                if (!date) return '';
+                
+                const month = date.getMonth() + 1; // getMonth() returns 0-11
+                return month.toString().padStart(2, '0');
+            }
+            
+            getStatistics() {
+                const totalRevenue = this.filteredData.reduce((sum, c) => sum + c.totalRevenue, 0);
+                const totalJobs = this.filteredData.reduce((sum, c) => sum + c.totalJobs, 0);
+                
+                return {
+                    totalCustomers: this.filteredData.length,
+                    totalJobs: totalJobs,
+                    totalRevenue: totalRevenue,
+                    avgRevenue: this.filteredData.length > 0 ? totalRevenue / this.filteredData.length : 0
+                };
+            }
+            
+            getFilterOptions() {
+                return {
+                    years: [...new Set(this.customerData.map(c => c.year).filter(y => y))].sort().reverse(),
+                    cities: [...new Set(this.customerData.map(c => c.city).filter(c => c))].sort(),
+                    serviceTypes: Array.from(this.detectedServiceTypes).sort(),
+                    productCategories: Array.from(this.detectedProductCategories).sort()
+                };
+            }
+            
+            getCategoryAnalysis() {
+                const serviceTypeBreakdown = {};
+                const productBreakdown = {};
+                
+                this.filteredData.forEach(customer => {
+                    customer.serviceTypes.forEach(st => {
+                        if (!serviceTypeBreakdown[st]) serviceTypeBreakdown[st] = { count: 0, revenue: 0, customers: 0 };
+                        serviceTypeBreakdown[st].customers++;
+                        serviceTypeBreakdown[st].revenue += customer.totalRevenue;
+                        serviceTypeBreakdown[st].count += customer.totalJobs;
+                    });
+                    
+                    customer.products.forEach(p => {
+                        if (!productBreakdown[p]) productBreakdown[p] = { count: 0, revenue: 0, customers: 0 };
+                        productBreakdown[p].customers++;
+                        productBreakdown[p].revenue += customer.totalRevenue;
+                        productBreakdown[p].count += customer.totalJobs;
+                    });
+                });
+                
+                return { serviceTypeBreakdown, productBreakdown };
+            }
+        }
+
+        // ============================================================================
+        // UI LAYER
+        // ============================================================================
+        
+        class UIRenderer {
+            constructor(config) {
+                this.config = config;
+                this.sortColumn = null;
+                this.sortDirection = 'asc';
+            }
+            
+            renderTable(data) {
+                const header = document.getElementById('tableHeader');
+                header.innerHTML = '';
+                const headerRow = document.createElement('tr');
+                
+                this.config.tableColumns.forEach((col) => {
+                    const th = document.createElement('th');
+                    th.textContent = col.label;
+                    if (col.sortable) {
+                        th.classList.add('sortable');
+                        th.innerHTML = `${col.label} <span style="opacity: 0.7;">⇅</span>`;
+                        th.onclick = () => app.sort(col.id);
+                    }
+                    headerRow.appendChild(th);
+                });
+                header.appendChild(headerRow);
+                
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+                
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    this.config.tableColumns.forEach(col => {
+                        const td = document.createElement('td');
+                        // Pass the entire row to render function for job numbers
+                        if (col.id === 'jobNumbers') {
+                            td.innerHTML = col.render(row[col.id], row);
+                        } else {
+                            td.innerHTML = col.render(row[col.id]);
+                        }
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+            }
+            
+            renderStats(stats) {
+                const container = document.getElementById('statsGrid');
+                container.innerHTML = '';
+                
+                CONFIG.statsConfig.forEach(statConfig => {
+                    const card = document.createElement('div');
+                    card.className = 'stat-card';
+                    
+                    const value = stats[statConfig.id];
+                    let formattedValue = value;
+                    
+                    if (statConfig.format === 'currency') {
+                        formattedValue = UtilityService.formatCurrency(value);
+                    } else if (statConfig.format === 'number') {
+                        formattedValue = value.toLocaleString();
+                    }
+                    
+                    card.innerHTML = `
+                        <div class="stat-value">${formattedValue}</div>
+                        <div class="stat-label">${statConfig.label}</div>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+            }
+            
+            renderFilters(filterOptions, currentValues = {}) {
+                document.getElementById('filtersContainer').style.display = 'block';
+                
+                const basicContainer = document.getElementById('basicFilters');
+                basicContainer.innerHTML = '';
+                
+                // Create customer type filter options from config
+                const customerTypeOptions = [
+                    { value: '', label: CONFIG.filterLabels.allTypes }
+                ].concat(Object.values(CONFIG.customerTypes).map(ct => ({ 
+                    value: ct.value, 
+                    label: ct.label 
+                })));
+                
+                basicContainer.appendChild(this.createSelect('customerType', 'Customer Type', customerTypeOptions, currentValues.customerType));
+                
+                const minJobs = document.createElement('div');
+                minJobs.className = 'filter-group';
+                minJobs.innerHTML = `<label>Min Jobs</label><input type="number" id="minJobs" placeholder="0" min="0" value="${currentValues.minJobs || ''}">`;
+                basicContainer.appendChild(minJobs);
+                
+                const minRevenue = document.createElement('div');
+                minRevenue.className = 'filter-group';
+                minRevenue.innerHTML = `<label>Min Revenue</label><input type="number" id="minRevenue" placeholder="0" min="0" value="${currentValues.minRevenue || ''}">`;
+                basicContainer.appendChild(minRevenue);
+                
+                const categoryContainer = document.getElementById('categoryFilters');
+                categoryContainer.innerHTML = '';
+                
+                const serviceOptions = [{ value: '', label: CONFIG.filterLabels.allServices }].concat(filterOptions.serviceTypes.map(st => ({ value: st, label: st })));
+                categoryContainer.appendChild(this.createSelect('serviceType', 'Service Type', serviceOptions, currentValues.serviceType));
+                
+                const productOptions = [{ value: '', label: CONFIG.filterLabels.allProducts }].concat(filterOptions.productCategories.map(pc => ({ value: pc, label: pc })));
+                categoryContainer.appendChild(this.createSelect('productCategory', 'Product Category', productOptions, currentValues.productCategory));
+                
+                const timeLocationContainer = document.getElementById('timeLocationFilters');
+                timeLocationContainer.innerHTML = '';
+                
+                const yearOptions = [{ value: '', label: CONFIG.filterLabels.allYears }].concat(filterOptions.years.map(y => ({ value: y, label: y })));
+                timeLocationContainer.appendChild(this.createSelect('year', 'Year', yearOptions, currentValues.year));
+                
+                const months = [
+                    { value: '', label: CONFIG.filterLabels.allMonths }, 
+                    { value: '01', label: 'January' }, { value: '02', label: 'February' }, { value: '03', label: 'March' },
+                    { value: '04', label: 'April' }, { value: '05', label: 'May' }, { value: '06', label: 'June' }, 
+                    { value: '07', label: 'July' }, { value: '08', label: 'August' }, { value: '09', label: 'September' }, 
+                    { value: '10', label: 'October' }, { value: '11', label: 'November' }, { value: '12', label: 'December' }
+                ];
+                timeLocationContainer.appendChild(this.createSelect('month', 'Month', months, currentValues.month));
+                
+                const cityOptions = [{ value: '', label: CONFIG.filterLabels.allCities }].concat(filterOptions.cities.map(c => ({ value: c, label: c })));
+                timeLocationContainer.appendChild(this.createSelect('city', 'City', cityOptions, currentValues.city));
+                
+                ['customerType', 'serviceType', 'productCategory', 'year', 'month', 'city'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', () => app.applyFilters());
+                });
+                ['minRevenue', 'minJobs'].forEach(id => {
+                    document.getElementById(id).addEventListener('input', () => app.applyFilters());
+                });
+            }
+            
+            createSelect(id, label, options, currentValue = '') {
+                const group = document.createElement('div');
+                group.className = 'filter-group';
+                
+                const labelEl = document.createElement('label');
+                labelEl.textContent = label;
+                
+                const select = document.createElement('select');
+                select.id = id;
+                
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.label;
+                    if (opt.value === currentValue) option.selected = true;
+                    select.appendChild(option);
+                });
+                
+                group.appendChild(labelEl);
+                group.appendChild(select);
+                return group;
+            }
+            
+            renderCategorySummary(serviceTypes, productCategories) {
+                const serviceChips = document.getElementById('serviceTypeChips');
+                const productChips = document.getElementById('productCategoryChips');
+                
+                serviceChips.innerHTML = Array.from(serviceTypes).map(st => `<div class="category-chip">${st}</div>`).join('');
+                productChips.innerHTML = Array.from(productCategories).slice(0, 10).map(pc => `<div class="category-chip">${pc}</div>`).join('');
+                
+                if (productCategories.size > 10) {
+                    productChips.innerHTML += `<div class="category-chip">+${productCategories.size - 10} more</div>`;
+                }
+                
+                document.getElementById('categoriesSummary').style.display = 'block';
+            }
+            
+            showError(message) {
+                document.getElementById('errorContainer').innerHTML = 
+                    `<div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 6px; margin-top: 20px;">${message}</div>`;
+            }
+            
+            clearError() {
+                document.getElementById('errorContainer').innerHTML = '';
+            }
+        }
+
+        // ============================================================================
+        // APPLICATION CONTROLLER
+        // ============================================================================
+        
+        class ResidentialJobsAnalyzer {
+            constructor() {
+                this.dataProcessor = new DataProcessor();
+                this.uiRenderer = new UIRenderer(CONFIG);
+                this.setupEventListeners();
+                this.setupLightbox();
+            }
+            
+            setupEventListeners() {
+                const uploadArea = document.getElementById('uploadArea');
+                const fileInput = document.getElementById('fileInput');
+                
+                uploadArea.addEventListener('click', () => fileInput.click());
+                uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+                uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('dragover');
+                    if (e.dataTransfer.files.length > 0) this.handleFile(e.dataTransfer.files[0]);
+                });
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) this.handleFile(e.target.files[0]);
+                });
+            }
+            
+            handleFile(file) {
+                const validation = UtilityService.validateCSVFile(file);
+                if (!validation.valid) {
+                    this.uiRenderer.showError(validation.error);
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => this.processData(e.target.result);
+                reader.onerror = () => this.uiRenderer.showError('Error reading file.');
+                reader.readAsText(file);
+            }
+            
+            processData(csvContent) {
+                try {
+                    this.uiRenderer.clearError();
+                    const customers = this.dataProcessor.loadData(csvContent);
+                    
+                    if (customers.length === 0) {
+                        this.uiRenderer.showError('No residential or wholesale jobs found. The file must contain jobs with Residential = "Yes" or Wholesale = "Yes".');
+                        return;
+                    }
+                    
+                    document.getElementById('processingInfo').innerHTML = `
+                        Processed <strong>${this.dataProcessor.totalRecordsCount.toLocaleString()}</strong> total records →
+                        Found <strong>${this.dataProcessor.includedJobsCount.toLocaleString()}</strong> residential/wholesale jobs →
+                        Grouped into <strong>${customers.length}</strong> unique customers<br>
+                        <small style="color: #6c757d;">Enhanced with 2024/2025 market research: ${this.dataProcessor.detectedServiceTypes.size} service types, ${this.dataProcessor.detectedProductCategories.size} product categories detected</small>
+                    `;
+                    
+                    this.uiRenderer.renderCategorySummary(this.dataProcessor.detectedServiceTypes, this.dataProcessor.detectedProductCategories);
+                    this.display();
+                    
+                    document.getElementById('uploadArea').style.display = 'none';
+                    document.getElementById('analysisSection').classList.add('active');
+                    
+                } catch (error) {
+                    this.uiRenderer.showError('Error processing CSV: ' + error.message);
+                }
+            }
+            
+            display() {
+                const stats = this.dataProcessor.getStatistics();
+                const filterOptions = this.dataProcessor.getFilterOptions();
+                
+                const currentValues = {};
+                if (document.getElementById('customerType')) {
+                    currentValues.customerType = document.getElementById('customerType').value;
+                    currentValues.serviceType = document.getElementById('serviceType').value;
+                    currentValues.productCategory = document.getElementById('productCategory').value;
+                    currentValues.year = document.getElementById('year').value;
+                    currentValues.month = document.getElementById('month').value;
+                    currentValues.city = document.getElementById('city').value;
+                    currentValues.minRevenue = document.getElementById('minRevenue').value;
+                    currentValues.minJobs = document.getElementById('minJobs').value;
+                }
+                
+                this.uiRenderer.renderStats(stats);
+                this.uiRenderer.renderFilters(filterOptions, currentValues);
+                this.uiRenderer.renderTable(this.dataProcessor.filteredData);
+            }
+            
+            applyFilters() {
+                const filters = {
+                    customerType: document.getElementById('customerType').value,
+                    serviceType: document.getElementById('serviceType').value,
+                    productCategory: document.getElementById('productCategory').value,
+                    year: document.getElementById('year').value,
+                    month: document.getElementById('month').value,
+                    city: document.getElementById('city').value,
+                    minRevenue: parseFloat(document.getElementById('minRevenue').value) || 0,
+                    minJobs: parseInt(document.getElementById('minJobs').value) || 0
+                };
+                
+                this.dataProcessor.applyFilters(filters);
+                this.display();
+            }
+            
+            sort(columnId) {
+                const column = CONFIG.tableColumns.find(c => c.id === columnId);
+                if (!column || !column.sortable) return;
+                
+                if (this.uiRenderer.sortColumn === columnId) {
+                    this.uiRenderer.sortDirection = this.uiRenderer.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.uiRenderer.sortColumn = columnId;
+                    this.uiRenderer.sortDirection = 'asc';
+                }
+                
+                this.dataProcessor.filteredData.sort((a, b) => {
+                    let aVal = a[columnId];
+                    let bVal = b[columnId];
+                    
+                    if (typeof aVal === 'string') {
+                        aVal = aVal.toLowerCase();
+                        bVal = (bVal || '').toLowerCase();
+                    }
+                    
+                    if (this.uiRenderer.sortDirection === 'asc') {
+                        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                    } else {
+                        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                    }
+                });
+                
+                this.uiRenderer.renderTable(this.dataProcessor.filteredData);
+            }
+            
+            export() {
+                const detailedData = [];
+                
+                this.dataProcessor.filteredData.forEach(customer => {
+                    customer.rawJobs.forEach(job => {
+                        const rawClassification = this.dataProcessor.analysisService.detectKeywords(job, CONFIG);
+                        const businessResult = this.dataProcessor.analysisService.classifyJob(job, rawClassification);
+                        
+                        detailedData.push({
+                            'Job #': job['Job #'],
+                            'Customer Name': customer.customerName,
+                            'Email': customer.email,
+                            'Phone': customer.phone,
+                            'Billing Street': job['Billing street'] || '',
+                            'Billing City': job['Billing city'] || '',
+                            'Billing State': job['Billing province'] || '',
+                            'Billing ZIP': job['Billing ZIP'] || '',
+                            'Service Address': UtilityService.buildAddress(job),
+                            'Title': job['Title'] || '',
+                            'Sales Rep': job['Salesperson'] || job['Sales Rep.'] || '',
+                            'Quote #': job['Quote #'] || '',
+                            'Created Date': job['Created date'],
+                            'Scheduled Date': job['Scheduled start date'],
+                            'Closed Date': job['Closed date'] || CONFIG.defaultValues.notClosed,
+                            'Service Types': businessResult.serviceTypes.join(', '),
+                            'Products': businessResult.productCategories.join(', '),
+                            'Line Items': job['Line items'],
+                            'Revenue': parseFloat(job['Total revenue ($)']) || 0,
+                            'Customer Type': customer.customerType
+                        });
+                    });
+                });
+                
+                const filename = this.generateExportFilename();
+                UtilityService.downloadCSV(detailedData, filename);
+            }
+            
+            generateExportFilename() {
+                const filters = this.getCurrentFilters();
+                const parts = ['Jobs'];
+                
+                // Add filter components to filename
+                if (filters.customerType) {
+                    parts.push(filters.customerType);
+                }
+                
+                if (filters.serviceType) {
+                    parts.push(filters.serviceType.replace(/\s+/g, ''));
+                }
+                
+                if (filters.productCategory) {
+                    parts.push(filters.productCategory.replace(/\s+/g, ''));
+                }
+                
+                if (filters.year) {
+                    parts.push(filters.year);
+                }
+                
+                if (filters.month) {
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const monthIndex = parseInt(filters.month) - 1;
+                    if (monthIndex >= 0 && monthIndex < 12) {
+                        parts.push(monthNames[monthIndex]);
+                    }
+                }
+                
+                if (filters.city) {
+                    parts.push(filters.city.replace(/\s+/g, ''));
+                }
+                
+                if (filters.minRevenue > 0) {
+                    parts.push(`Min${filters.minRevenue}`);
+                }
+                
+                if (filters.minJobs > 0) {
+                    parts.push(`${filters.minJobs}JobsMin`);
+                }
+                
+                // Add timestamp to make filename unique
+                const now = new Date();
+                const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
+                parts.push(timestamp);
+                
+                return parts.join('_') + '.csv';
+            }
+            
+            getCurrentFilters() {
+                return {
+                    customerType: document.getElementById('customerType')?.value || '',
+                    serviceType: document.getElementById('serviceType')?.value || '',
+                    productCategory: document.getElementById('productCategory')?.value || '',
+                    year: document.getElementById('year')?.value || '',
+                    month: document.getElementById('month')?.value || '',
+                    city: document.getElementById('city')?.value || '',
+                    minRevenue: parseFloat(document.getElementById('minRevenue')?.value) || 0,
+                    minJobs: parseInt(document.getElementById('minJobs')?.value) || 0
+                };
+            }
+            
+            showCategoryAnalysis() {
+                const analysis = this.dataProcessor.getCategoryAnalysis();
+                
+                let message = 'Enhanced Category Analysis\n\n';
+                message += 'Service Types:\n';
+                Object.entries(analysis.serviceTypeBreakdown)
+                    .sort((a, b) => b[1].revenue - a[1].revenue)
+                    .forEach(([type, data]) => {
+                        message += `${type}: ${data.customers} customers, ${data.count} jobs, ${data.revenue.toFixed(2)}\n`;
+                    });
+                
+                message += '\nProduct Categories:\n';
+                Object.entries(analysis.productBreakdown)
+                    .sort((a, b) => b[1].revenue - a[1].revenue)
+                    .slice(0, 10)
+                    .forEach(([product, data]) => {
+                        message += `${product}: ${data.customers} customers, ${data.count} jobs, ${data.revenue.toFixed(2)}\n`;
+                    });
+                
+                alert(message);
+            }
+            
+            setupLightbox() {
+                const lightbox = document.getElementById('jobLightbox');
+                const closeBtn = document.getElementById('closeLightbox');
+                
+                // Close lightbox when clicking close button
+                closeBtn.addEventListener('click', () => {
+                    lightbox.style.display = 'none';
+                });
+                
+                // Close lightbox when clicking outside the content
+                lightbox.addEventListener('click', (e) => {
+                    if (e.target === lightbox) {
+                        lightbox.style.display = 'none';
+                    }
+                });
+                
+                // Close lightbox with Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && lightbox.style.display === 'block') {
+                        lightbox.style.display = 'none';
+                    }
+                });
+            }
+            
+            openJobDetails(jobNumber, customerName) {
+                // Find the customer and job
+                const customer = this.dataProcessor.filteredData.find(c => c.customerName === customerName);
+                if (!customer) return;
+                
+                const job = customer.rawJobs.find(j => j['Job #'] == jobNumber);
+                if (!job) return;
+                
+                // Populate customer information
+                document.getElementById('lightbox-customer-name').textContent = customer.customerName || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-customer-email').textContent = customer.email || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-customer-phone').textContent = customer.phone || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-customer-address').textContent = UtilityService.buildAddress(job);
+                
+                // Populate job details
+                document.getElementById('lightbox-job-number').textContent = job['Job #'] || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-created-date').textContent = job['Created date'] || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-scheduled-date').textContent = job['Scheduled start date'] || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-closed-date').textContent = job['Closed date'] || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-job-title').textContent = job['Title'] || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-line-items').textContent = job['Line items'] || CONFIG.defaultValues.missingValue;
+                document.getElementById('lightbox-salesperson').textContent = job['Salesperson'] || CONFIG.defaultValues.missingValue;
+                
+                const revenue = parseFloat(job['Total revenue ($)']) || 0;
+                document.getElementById('lightbox-revenue').textContent = UtilityService.formatCurrency(revenue);
+                
+                document.getElementById('lightbox-warranty').textContent = job['Warranty Work'] || CONFIG.defaultValues.missingValue;
+                
+                // Show the lightbox
+                document.getElementById('jobLightbox').style.display = 'block';
+            }
+            
+            reset() {
+                document.getElementById('uploadArea').style.display = 'block';
+                document.getElementById('analysisSection').classList.remove('active');
+                document.getElementById('fileInput').value = '';
+                document.getElementById('categoriesSummary').style.display = 'none';
+                document.getElementById('filtersContainer').style.display = 'none';
+                this.dataProcessor = new DataProcessor();
+                this.uiRenderer.clearError();
+            }
+        }
+
+        // Initialize application
+        const app = new ResidentialJobsAnalyzer();
+    </script>
+</body>
+</html>
