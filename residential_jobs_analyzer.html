@@ -618,7 +618,7 @@
             
             static formatCurrency(amount) {
                 if (amount === null || amount === undefined || isNaN(amount)) return '$0';
-                return `${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+                return `$${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
             }
             
             static isResidentialJob(job) {
@@ -811,7 +811,7 @@
                     label: 'Residential Service'
                 },
                 'emergency': {
-                    keywords: ['emergency', 'urgent', 'after hours', 'same day', 'asap', 'stuck door', 'door won\'t open', 'door won\'t close', 'residential same day', 'broken spring'],
+                    keywords: ['emergency', 'urgent', 'after hours', 'stuck door', 'door won\'t open', 'door won\'t close', 'broken spring'],
                     label: 'Emergency Service'
                 },
                 'installation': {
@@ -866,7 +866,33 @@
                 'fiberglass': { keywords: ['fiberglass', 'fiberglass door', 'composite fiberglass'], label: 'Fiberglass Doors' },
                 'carriage': { keywords: ['carriage', 'carriage house', 'carriage style', 'overlay carriage', 'barn style', 'barn door', 'faux carriage'], label: 'Carriage House' },
                 'modern': { keywords: ['modern', 'contemporary', 'flush panel', 'modern steel', 'modern aluminum', 'sleek design', 'minimalist'], label: 'Modern/Contemporary' },
-                'liftmaster': { keywords: ['liftmaster', 'lift master', '8500', '8550', '8360', '8365', 'myq liftmaster', 'elite series'], label: 'LiftMaster' },
+                'liftmaster': { 
+                    keywords: [
+                        'liftmaster', 'lift master', 'myq liftmaster', 'elite series',
+                        // 8000 series models
+                        '8010', '8065', '8155', '8160', '8164', '8165', '8355', '8360', '8365', 
+                        '8500', '8550', '8557', '8587', '8580',
+                        // Model variants with letters
+                        '8355w', '8360w', '8365w', '8500w', '8550w', '8557w', '8587w',
+                        '8160w', '8160wb', '8165w', '8164w', '8155w',
+                        '8360wlb', '8550wlb', '8580wlb',
+                        // Specific model numbers found in compatibility charts
+                        '8365-267', '8365w-267', '8550w-267', '8360w-267', '8355w-267',
+                        // 84000 and 85000 series  
+                        '84501', '84602', '85503', '85503-267',
+                        // 87000 series
+                        '87504', '87802', '87504-267',
+                        // G-series part numbers (common in line items)
+                        'g877lm', 'g893lm', 'g2778', 'g891lm', 'g971lm', 'g973lm',
+                        // Legacy models
+                        '3220', '3255', '3240', '3265', '3270', '3280', '3800', '3500', '3850', '3585', '3595',
+                        '2220', '2245', '2255', '2265', '2280', '2500', '2575', '2585', '2595',
+                        '1245', '1255', '1265', '1270', '1280', '1345', '1355', '1356',
+                        // Additional common part references
+                        'wled', '950estd', '953estd'
+                    ], 
+                    label: 'LiftMaster' 
+                },
                 'chamberlain': { keywords: ['chamberlain', 'b970', 'b550', 'b750', 'b2405', 'b6765', 'myq chamberlain', 'whisper drive'], label: 'Chamberlain' },
                 'genie': { keywords: ['genie', 'intellig', 'silentmax', 'stealth drive', 'quietlift', 'aladdin connect', 'chain drive 500'], label: 'Genie' },
                 'craftsman': { keywords: ['craftsman', 'craftsman opener'], label: 'Craftsman' },
@@ -910,16 +936,19 @@
             detectKeywords(job, config) {
                 const lineItems = String(job['Line items'] || '');
                 const title = String(job['Title'] || '');
-                const salesRep = String(job['Salesperson'] || '').toLowerCase();
+                // Check both possible sales rep fields
+                const salesRep1 = String(job['Salesperson'] || '').toLowerCase();
+                const salesRep2 = String(job['Sales Rep.'] || '').toLowerCase();
+                const salesRepCombined = (salesRep1 + ' ' + salesRep2).toLowerCase();
                 const combinedText = (lineItems + ' ' + title).toLowerCase();
                 
                 const serviceTypes = [];
                 const productCategories = [];
                 
                 // Sales rep-based classification (takes precedence)
-                if (salesRep.includes('ajimenez')) {
+                if (salesRepCombined.includes('ajimenez')) {
                     serviceTypes.push('Installation');
-                } else if (salesRep.includes('smiske')) {
+                } else if (salesRepCombined.includes('smiske')) {
                     serviceTypes.push('Residential Service');
                 }
                 
@@ -927,8 +956,18 @@
                 for (const [key, serviceConfig] of Object.entries(config.serviceTypes)) {
                     for (const keyword of serviceConfig.keywords) {
                         if (combinedText.includes(keyword)) {
-                            if (!serviceTypes.includes(serviceConfig.label)) {
-                                serviceTypes.push(serviceConfig.label);
+                            // Special logic for Emergency Service - requires BOTH keywords AND same-day scheduling
+                            if (serviceConfig.label === 'Emergency Service') {
+                                if (this.isSameDayJob(job)) {
+                                    if (!serviceTypes.includes(serviceConfig.label)) {
+                                        serviceTypes.push(serviceConfig.label);
+                                    }
+                                }
+                                // If not same-day, don't add Emergency Service even with keywords
+                            } else {
+                                if (!serviceTypes.includes(serviceConfig.label)) {
+                                    serviceTypes.push(serviceConfig.label);
+                                }
                             }
                             break;
                         }
@@ -969,7 +1008,6 @@
                 const title = String(job['Title'] || '').toLowerCase();
                 const combinedText = lineItems + ' ' + title;
                 
-                let businessServiceTypes = [...rawClassification.serviceTypes];
                 let businessProductCategories = [...rawClassification.productCategories];
                 
                 // CHI Door validation: Prevent false positives for low-revenue jobs
@@ -992,27 +1030,13 @@
                     }
                 }
                 
-                // Business rules for service type refinement
-                if (revenue >= 2000 && this.isDoorInstallation(combinedText)) {
-                    // High revenue door installation
-                    if (!businessServiceTypes.includes('Installation')) {
-                        businessServiceTypes = businessServiceTypes.filter(s => s !== 'Residential Service');
-                        businessServiceTypes.push('Installation');
-                    }
-                } else if (revenue >= 300 && revenue < 1000 && this.isStandaloneOpener(combinedText)) {
-                    // Standalone opener installation is retrofit
-                    if (!businessServiceTypes.includes('Retrofit')) {
-                        businessServiceTypes = businessServiceTypes.filter(s => s !== 'Residential Service');
-                        businessServiceTypes.push('Retrofit');
-                    }
-                }
-                
-                const primaryService = this.determinePrimaryService(businessServiceTypes, revenue, combinedText);
+                // ATOMIC SERVICE TYPE: Apply priority hierarchy to select single service type
+                // Priority: Installation > Retrofit > Emergency Service > Residential Service
+                let atomicServiceType = this.determineAtomicServiceType(rawClassification.serviceTypes, revenue, combinedText);
                 
                 return {
-                    serviceTypes: businessServiceTypes,
+                    serviceType: atomicServiceType, // Now single service type
                     productCategories: businessProductCategories,
-                    primaryService: primaryService,
                     revenue: revenue
                 };
             }
@@ -1029,16 +1053,51 @@
                        !combinedText.includes('door sale') && !combinedText.includes('door clause');
             }
             
-            determinePrimaryService(serviceTypes, revenue, combinedText) {
-                // Priority order based on business importance
-                if (serviceTypes.includes('Emergency Service')) return 'Emergency Service';
-                if (serviceTypes.includes('Installation')) return 'Installation';
-                if (serviceTypes.includes('Retrofit')) return 'Retrofit';
-                if (serviceTypes.includes('Residential Service')) return 'Residential Service';
+            determineAtomicServiceType(detectedServices, revenue, combinedText) {
+                // Apply business rules first
+                let candidateServices = [...detectedServices];
                 
-                // Fallback based on revenue if no service type detected
-                if (revenue >= 1000) return 'Installation';
-                return 'Residential Service';
+                // CRITICAL: $1000+ revenue threshold - cannot be residential service
+                if (revenue >= 1000 && candidateServices.includes('Residential Service')) {
+                    candidateServices = candidateServices.filter(s => s !== 'Residential Service');
+                    // If no other service type detected, default to Installation for high revenue
+                    if (candidateServices.length === 0) {
+                        candidateServices.push('Installation');
+                    }
+                }
+                
+                // Business rule: High revenue door installation
+                if (revenue >= 2000 && this.isDoorInstallation(combinedText)) {
+                    candidateServices.push('Installation');
+                }
+                
+                // Business rule: Standalone opener retrofit
+                if (revenue >= 300 && revenue < 1000 && this.isStandaloneOpener(combinedText)) {
+                    candidateServices.push('Retrofit');
+                }
+                
+                // Business rule: LiftMaster products + other codes = Installation
+                if (this.hasLiftMasterProducts(combinedText) && this.hasOtherProductCodes(combinedText)) {
+                    candidateServices.push('Installation');
+                }
+                
+                // Default classification if no service type detected
+                if (candidateServices.length === 0) {
+                    if (revenue >= 1000) {
+                        candidateServices.push('Installation');
+                    } else {
+                        candidateServices.push('Residential Service');
+                    }
+                }
+                
+                // Apply priority hierarchy: Installation > Retrofit > Emergency Service > Residential Service
+                if (candidateServices.includes('Installation')) return 'Installation';
+                if (candidateServices.includes('Retrofit')) return 'Retrofit';
+                if (candidateServices.includes('Emergency Service')) return 'Emergency Service';
+                if (candidateServices.includes('Residential Service')) return 'Residential Service';
+                
+                // Fallback (should not happen)
+                return candidateServices[0] || 'Residential Service';
             }
             
             // Customer aggregation
@@ -1046,24 +1105,25 @@
                 const allServiceTypes = new Set();
                 const allProductCategories = new Set();
                 let totalRevenue = 0;
-                let primaryServiceRevenue = {};
+                let serviceRevenue = {};
                 
                 jobs.forEach(job => {
                     const rawClassification = this.detectKeywords(job, CONFIG);
                     const businessClassification = this.classifyJob(job, rawClassification);
                     
-                    businessClassification.serviceTypes.forEach(st => allServiceTypes.add(st));
+                    // Now using single atomic service type
+                    allServiceTypes.add(businessClassification.serviceType);
                     businessClassification.productCategories.forEach(pc => allProductCategories.add(pc));
                     
-                    const primary = businessClassification.primaryService;
-                    primaryServiceRevenue[primary] = (primaryServiceRevenue[primary] || 0) + businessClassification.revenue;
+                    const service = businessClassification.serviceType;
+                    serviceRevenue[service] = (serviceRevenue[service] || 0) + businessClassification.revenue;
                     totalRevenue += businessClassification.revenue;
                 });
                 
-                // Find highest revenue service dynamically
+                // Find highest revenue service for primary
                 let customerPrimaryService = this.getDefaultPrimaryService();
                 let maxRevenue = 0;
-                Object.entries(primaryServiceRevenue).forEach(([service, revenue]) => {
+                Object.entries(serviceRevenue).forEach(([service, revenue]) => {
                     if (revenue > maxRevenue) {
                         maxRevenue = revenue;
                         customerPrimaryService = service;
@@ -1082,6 +1142,54 @@
                 // Dynamically get the first available service type as default
                 const availableServiceTypes = Object.values(CONFIG.serviceTypes).map(st => st.label);
                 return availableServiceTypes.length > 0 ? availableServiceTypes[0] : 'Unknown Service';
+            }
+            
+            isSameDayJob(job) {
+                const createdDate = job['Created date'];
+                const scheduledDate = job['Scheduled start date'];
+                
+                if (!createdDate || !scheduledDate) return false;
+                
+                try {
+                    const created = new Date(createdDate);
+                    const scheduled = new Date(scheduledDate);
+                    
+                    // Check if both dates are valid
+                    if (isNaN(created.getTime()) || isNaN(scheduled.getTime())) return false;
+                    
+                    // Compare dates (same day = same year, month, and day)
+                    return created.getFullYear() === scheduled.getFullYear() &&
+                           created.getMonth() === scheduled.getMonth() &&
+                           created.getDate() === scheduled.getDate();
+                } catch (error) {
+                    return false;
+                }
+            }
+            
+            hasLiftMasterProducts(combinedText) {
+                const liftmasterKeywords = CONFIG.productCategories.liftmaster.keywords;
+                return liftmasterKeywords.some(keyword => combinedText.includes(keyword));
+            }
+            
+            hasOtherProductCodes(combinedText) {
+                // Check for numeric codes that suggest parts/products (excluding job numbers)
+                // Look for patterns like: 84501, G2778, part numbers, etc.
+                const productCodePatterns = [
+                    /\b\d{4,5}\b/g,           // 4-5 digit numbers (part codes)
+                    /\bg\d{3,4}[a-z]*\b/gi,   // G-series codes like G2778, G877LM
+                    /\b[a-z]\d{3,5}[a-z]*\b/gi // Letter+number combinations
+                ];
+                
+                let codeCount = 0;
+                productCodePatterns.forEach(pattern => {
+                    const matches = combinedText.match(pattern);
+                    if (matches) {
+                        codeCount += matches.length;
+                    }
+                });
+                
+                // Require at least 2 different product codes to suggest installation
+                return codeCount >= 2;
             }
         }
 
@@ -1299,8 +1407,8 @@
                     
                     let matches = true;
                     
-                    // Service type filter - check if this specific job contains the service type
-                    if (filters.serviceType && !businessResult.serviceTypes.includes(filters.serviceType)) {
+                    // Service type filter - check if this specific job matches the service type
+                    if (filters.serviceType && businessResult.serviceType !== filters.serviceType) {
                         matches = false;
                     }
                     
@@ -1506,6 +1614,7 @@
                 const productBreakdown = {};
                 
                 this.filteredData.forEach(customer => {
+                    // Now each customer has multiple service types but each job has atomic service type
                     customer.serviceTypes.forEach(st => {
                         if (!serviceTypeBreakdown[st]) serviceTypeBreakdown[st] = { count: 0, revenue: 0, customers: 0 };
                         serviceTypeBreakdown[st].customers++;
@@ -1867,7 +1976,7 @@
                             'Created Date': job['Created date'],
                             'Scheduled Date': job['Scheduled start date'],
                             'Closed Date': job['Closed date'] || CONFIG.defaultValues.notClosed,
-                            'Service Types': businessResult.serviceTypes.join(', '),
+                            'Service Type': businessResult.serviceType, // Now single service type
                             'Products': businessResult.productCategories.join(', '),
                             'Line Items': job['Line items'],
                             'Revenue': parseFloat(job['Total revenue ($)']) || 0,
@@ -1950,7 +2059,7 @@
                 Object.entries(analysis.serviceTypeBreakdown)
                     .sort((a, b) => b[1].revenue - a[1].revenue)
                     .forEach(([type, data]) => {
-                        message += `${type}: ${data.customers} customers, ${data.count} jobs, ${data.revenue.toFixed(2)}\n`;
+                        message += `${type}: ${data.customers} customers, ${data.count} jobs, $${data.revenue.toFixed(2)}\n`;
                     });
                 
                 message += '\nProduct Categories:\n';
@@ -1958,7 +2067,7 @@
                     .sort((a, b) => b[1].revenue - a[1].revenue)
                     .slice(0, 10)
                     .forEach(([product, data]) => {
-                        message += `${product}: ${data.customers} customers, ${data.count} jobs, ${data.revenue.toFixed(2)}\n`;
+                        message += `${product}: ${data.customers} customers, ${data.count} jobs, $${data.revenue.toFixed(2)}\n`;
                     });
                 
                 alert(message);
