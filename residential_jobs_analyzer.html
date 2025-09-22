@@ -793,7 +793,8 @@
                 { id: 'totalCustomers', label: 'Total Customers', format: 'number' },
                 { id: 'totalJobs', label: 'Total Jobs', format: 'number' },
                 { id: 'totalRevenue', label: 'Total Revenue', format: 'currency' },
-                { id: 'avgRevenue', label: 'Avg per Customer', format: 'currency' }
+                { id: 'avgRevenue', label: 'Avg per Customer', format: 'currency' },
+                { id: 'avgPerJob', label: 'Avg per Job', format: 'currency' }
             ],
             
             filterLabels: {
@@ -807,7 +808,7 @@
             
             serviceTypes: {
                 'residential_service': {
-                    keywords: ['residential service', 'resi service', 'service call', 'tune-up', 'tune up', 'maintenance', 'lubrication', 'inspection', 'cleaning', 'repair', 'fix', 'adjust', 'alignment', 'troubleshoot', 'diagnostic'],
+                    keywords: ['residential service', 'resi service', 'service call', 'tune-up', 'tune up', 'maintenance', 'lubrication', 'inspection', 'cleaning', 'repair', 'fix', 'adjust', 'alignment', 'troubleshoot', 'diagnostic', 'opener installation', 'operator installation', 'motor installation', 'add opener', 'add operator', 'motor replacement', 'opener replacement'],
                     label: 'Residential Service'
                 },
                 'emergency': {
@@ -818,9 +819,9 @@
                     keywords: ['install', 'installation', 'new door', 'replacement', 'door installation', 'new build', 'door sale', 'door clause'],
                     label: 'Installation'
                 },
-                'retrofit': {
-                    keywords: ['opener installation', 'operator installation', 'motor installation', 'retrofit', 'add opener', 'add operator', 'motor replacement', 'opener replacement'],
-                    label: 'Retrofit'
+                'warranty': {
+                    keywords: ['warranty', 'warranty work', 'warranty replacement', 'warranty doors', 'warranty service', 'warranty repair', 'warranty call', 'under warranty'],
+                    label: 'Warranty'
                 }
             },
             
@@ -1071,11 +1072,6 @@
                     candidateServices.push('Installation');
                 }
                 
-                // Business rule: Standalone opener retrofit
-                if (revenue >= 300 && revenue < 1000 && this.isStandaloneOpener(combinedText)) {
-                    candidateServices.push('Retrofit');
-                }
-                
                 // Business rule: LiftMaster products + other codes = Installation
                 if (this.hasLiftMasterProducts(combinedText) && this.hasOtherProductCodes(combinedText)) {
                     candidateServices.push('Installation');
@@ -1090,10 +1086,10 @@
                     }
                 }
                 
-                // Apply priority hierarchy: Installation > Retrofit > Emergency Service > Residential Service
+                // Apply priority hierarchy: Installation > Emergency Service > Warranty > Residential Service
                 if (candidateServices.includes('Installation')) return 'Installation';
-                if (candidateServices.includes('Retrofit')) return 'Retrofit';
                 if (candidateServices.includes('Emergency Service')) return 'Emergency Service';
+                if (candidateServices.includes('Warranty')) return 'Warranty';
                 if (candidateServices.includes('Residential Service')) return 'Residential Service';
                 
                 // Fallback (should not happen)
@@ -1596,7 +1592,8 @@
                     totalCustomers: this.filteredData.length,
                     totalJobs: totalJobs,
                     totalRevenue: totalRevenue,
-                    avgRevenue: this.filteredData.length > 0 ? totalRevenue / this.filteredData.length : 0
+                    avgRevenue: this.filteredData.length > 0 ? totalRevenue / this.filteredData.length : 0,
+                    avgPerJob: totalJobs > 0 ? totalRevenue / totalJobs : 0
                 };
             }
             
